@@ -3,10 +3,14 @@ VS_2019/.vs/
 VS_2019/ConsoleFEMTest/Debug/
 VS_2019/ConsoleFEMTest/Release/
 VS_2019/ConsoleFEMTest/x64/
+VS_2019/ConsoleFEMTest/x32/
 VS_2019/ConsoleFEMTest/Backup_Oct_4/
 VS_2019/Debug/
 VS_2019/Release/
 VS_2019/x64/
+VS_2019/x32/
+VS_2019/eigen-3.3.7/
+
 
 # Compiled source #
 ###################

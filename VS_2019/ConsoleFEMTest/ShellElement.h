@@ -5,7 +5,6 @@
 #include "OrthotropicElasticMaterial.h"
 #include "Support.h"
 #include "Mass.h"
-#include <vector>
 #include <thread>
 #include <mutex>
 
@@ -14,6 +13,9 @@ class ShellElement
 public:
 	ShellElement();
 	ShellElement(int ID, Node* n1, Node* n2, Node* n3, Node* n4, Node* n5, Node* n6, Node* n7, Node* n8, Node* n9, double thick, int layers, std::vector<OrthotropicElasticMaterial> matList);
+	
+	std::string ToString();
+	
 	double GetWidth();
 	double GetHeight();
 	double GetTotalThickness();

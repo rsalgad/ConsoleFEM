@@ -116,6 +116,9 @@
     <ClInclude Include="TimeIntegrationMethod.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="StructureManager.h">
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConsoleFEMTest.cpp">
@@ -192,6 +195,9 @@
     </ClCompile>
     <ClCompile Include="TimeIntegrationMethod.cpp">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="StructureManager.cpp">
+      <Filter>Source Files\Helpers</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

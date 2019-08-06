@@ -31,6 +31,30 @@ Spring3D::Spring3D(int ID, Node* n1, Node* n2, std::vector<SpringMaterialModels*
 	_shearUnitVec = GetShearUnitVector();
 }
 
+std::string Spring3D::ToString() {
+	std::string spring = "";
+	spring += "(";
+	spring += std::to_string(_ID);
+	spring += ")";
+	spring += "(";
+	spring += "Node 1: ";
+	spring += std::to_string(_n1->GetID());
+	spring += ", ";
+	spring += "Node 2: ";
+	spring += std::to_string(_n2->GetID());
+	spring += ", ";
+	spring += "Axial Dir: ";
+	spring += _axialDir;
+	spring += ", ";
+	spring += "Shear Dir: ";
+	spring += _shearDir;
+	spring += ", ";
+	spring += "Out of Plane Dir: ";
+	spring += _outPlaneDir;
+	spring += ")";
+	return spring;
+}
+
 //<summary>Returns the first node of the element</summary>
 Node Spring3D::GetNode1() {
 	return *_n1;

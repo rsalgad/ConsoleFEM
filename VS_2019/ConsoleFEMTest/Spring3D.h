@@ -11,6 +11,7 @@ class Spring3D
 public:
 	Spring3D();
 	Spring3D(int ID, Node* n1, Node* n2, std::vector<SpringMaterialModels*> listOfMaterials, char axialDir, char shearDir);
+	std::string ToString();
 	Node GetNode1();
 	Node GetNode2();
 	std::vector<SpringMaterialModels*> GetListOfMaterials();

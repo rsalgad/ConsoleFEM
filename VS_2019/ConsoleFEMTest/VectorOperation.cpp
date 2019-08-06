@@ -1,5 +1,4 @@
 #include "pch.h"
-#include "Matrix.h"
 #include "VectorOperation.h"
 
 //<summary> Creates a unit vector pointing in the global x direction </summary> 

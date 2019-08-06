@@ -1,6 +1,5 @@
 #include "pch.h"
 #include "FileOperation.h"
-#include <vector>
 #include "tinyxml2.h"
 #include "MaterialModel.h"
 #include "ElasticMaterial.h"
@@ -15,9 +14,8 @@
 #include "ShellElement.h"
 #include "Spring3D.h"
 #include "OrthotropicElasticMaterial.h"
-#include <string>
+#include "StructureManager.h"
 #include <fstream>
-#include <iostream>
 
 using namespace tinyxml2;
 
@@ -128,7 +126,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 	std::vector<ShellElement> &listOfShellElements,
 	std::vector<Spring3D> &listOfSpringElements,
 	std::vector<Mass> &listOfMasses,
-	SeismicLoad &sLoad, ImpulseLoad &impLoad) {
+	SeismicLoad &sLoad, ImpulseLoad &impLoad,
+	StructureManager &structManager) {
 
 	int matTotal, loadTotal, supTotal, eleTotal, nodeTotal, springTotal, massTotal, seismicTotal, impulseTotal, impulseNodeTotal;
 
@@ -319,6 +318,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		element->QueryDoubleAttribute("Y", &y);
 		element->QueryDoubleAttribute("Z", &z);
 		element->QueryIntText(&ID);
+		Node* n = new Node(ID, x, y, z);
+		structManager.AddNode(n);
 		listOfNodes.emplace_back(ID, x, y, z); //add to the list of nodes
 		element = element->NextSiblingElement("node");
 	}
@@ -344,9 +345,10 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		element->QueryIntAttribute("N8", &n8);
 		element->QueryIntAttribute("N9", &n9);
 		element->QueryIntText(&ID);
-
 		std::vector<OrthotropicElasticMaterial> vecMat;
 		vecMat.push_back(OrthotropicElasticMaterial::FindElasticMaterialByID(listOfShellMaterials, matID));
+		ShellElement* shell = new ShellElement(ID, structManager.Nodes()[n1 - 1], structManager.Nodes()[n2 - 1], structManager.Nodes()[n3 - 1], structManager.Nodes()[n4 - 1], structManager.Nodes()[n5 - 1], structManager.Nodes()[n6 - 1], structManager.Nodes()[n7 - 1], structManager.Nodes()[n8 - 1], structManager.Nodes()[n9 - 1], thick, layers, vecMat);
+		structManager.AddShellElement(shell);
 		listOfShellElements.emplace_back(ID, &listOfNodes[n1 - 1], &listOfNodes[n2 - 1], &listOfNodes[n3 - 1], &listOfNodes[n4 - 1], &listOfNodes[n5 - 1], &listOfNodes[n6 - 1], &listOfNodes[n7 - 1], &listOfNodes[n8 - 1], &listOfNodes[n9 - 1], thick, layers, vecMat);
 		element = element->NextSiblingElement("element");
 	}
@@ -372,6 +374,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		vecMat.push_back(SpringMaterialModels::FindSpringMaterialByID(listOfMaterials, matIDX));
 		vecMat.push_back(SpringMaterialModels::FindSpringMaterialByID(listOfMaterials, matIDY));
 		vecMat.push_back(SpringMaterialModels::FindSpringMaterialByID(listOfMaterials, matIDZ));
+		Spring3D* spring = new Spring3D(ID, structManager.Nodes()[n1 - 1], structManager.Nodes()[n2 - 1], vecMat, xDir[0], yDir[0]);
+		structManager.AddSpringElement(spring);
 		listOfSpringElements.emplace_back(ID, &listOfNodes[n1 - 1], &listOfNodes[n2 - 1], vecMat, xDir[0], yDir[0]);
 		element = element->NextSiblingElement("element");
 	}

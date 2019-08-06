@@ -51,6 +51,29 @@ ShellElement::ShellElement(int ID, Node* n1, Node* n2, Node* n3, Node* n4, Node*
 	_v2 = Get_v2(_v3, _v1);
 }
 
+std::string ShellElement::ToString() {
+	std::string shell = "";
+	shell += "(";
+	shell += std::to_string(_ID);
+	shell += ")";
+	shell += "(";
+	shell += "Layers: ";
+	shell += std::to_string(_layers);
+	shell += ", ";
+	shell += "Thickness: ";
+	shell += std::to_string(_thick);
+	shell += ", ";
+	shell += "Nodes: ";
+	for (int i = 0; i < _nodeList.size(); i++){
+		shell += std::to_string(_nodeList[i]->GetID());
+		if (i != _nodeList.size() - 1) {
+			shell += " ";
+		}
+	}
+	shell += ")";
+	return shell;
+}
+
 //<summary>Returns the ID of the element</summary>
 int ShellElement::GetID() {
 	return _ID;

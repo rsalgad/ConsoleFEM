@@ -1,0 +1,200 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Source Files\Structure">
+      <UniqueIdentifier>{d51669ad-b243-49f1-81c8-e4636f75eadf}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Materials">
+      <UniqueIdentifier>{d9d26900-2926-4391-a3ec-41ec23b15761}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\TinyXML">
+      <UniqueIdentifier>{0ffe836b-bf69-445b-9505-57c45240a3f8}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Helpers">
+      <UniqueIdentifier>{1cef082d-4f12-45e4-92dc-cb7e6c675e77}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Materials">
+      <UniqueIdentifier>{4829a281-91ca-47de-8435-f33484ec8183}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Structure">
+      <UniqueIdentifier>{730ba745-8971-4311-bfab-7e699110f98b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Helpers">
+      <UniqueIdentifier>{d9d6d613-bfa9-4182-bcd1-2e00c45c3e1b}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\TinyXML">
+      <UniqueIdentifier>{904adf6e-c3a7-403e-a983-49feed3ae057}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Helpers\Matrix">
+      <UniqueIdentifier>{3f49c8f9-dc0a-46fd-804f-60602c725102}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Header Files\Helpers\Matrix">
+      <UniqueIdentifier>{81b8b410-5dab-42e1-8334-5b4adb5a58e9}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="ElasticMaterial.h">
+      <Filter>Header Files\Materials</Filter>
+    </ClInclude>
+    <ClInclude Include="OrthotropicElasticMaterial.h">
+      <Filter>Header Files\Materials</Filter>
+    </ClInclude>
+    <ClInclude Include="SpringAxialModel.h">
+      <Filter>Header Files\Materials</Filter>
+    </ClInclude>
+    <ClInclude Include="SpringGeneralModel.h">
+      <Filter>Header Files\Materials</Filter>
+    </ClInclude>
+    <ClInclude Include="SpringMaterialModels.h">
+      <Filter>Header Files\Materials</Filter>
+    </ClInclude>
+    <ClInclude Include="MaterialModel.h">
+      <Filter>Header Files\Materials</Filter>
+    </ClInclude>
+    <ClInclude Include="Displacement.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="FileOperation.h">
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="IterationManager.h">
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="Load.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="Node.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="pch.h">
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="ShellElement.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="Solver.h">
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="Spring3D.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="tinyxml2.h">
+      <Filter>Header Files\TinyXML</Filter>
+    </ClInclude>
+    <ClInclude Include="Support.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="Mass.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="Matrix.h">
+      <Filter>Header Files\Helpers\Matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="MatrixOperation.h">
+      <Filter>Header Files\Helpers\Matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="VectorOperation.h">
+      <Filter>Header Files\Helpers\Matrix</Filter>
+    </ClInclude>
+    <ClInclude Include="SeismicLoad.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="ImpulseLoad.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="resource.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="TimeIntegrationMethod.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="ConsoleFEMTest.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="tinyxml2.cpp">
+      <Filter>Source Files\TinyXML</Filter>
+    </ClCompile>
+    <ClCompile Include="Spring3D.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="ShellElement.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="Support.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="Load.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="Displacement.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="ElasticMaterial.cpp">
+      <Filter>Source Files\Materials</Filter>
+    </ClCompile>
+    <ClCompile Include="OrthotropicElasticMaterial.cpp">
+      <Filter>Source Files\Materials</Filter>
+    </ClCompile>
+    <ClCompile Include="MaterialModel.cpp">
+      <Filter>Source Files\Materials</Filter>
+    </ClCompile>
+    <ClCompile Include="Node.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="SpringAxialModel.cpp">
+      <Filter>Source Files\Materials</Filter>
+    </ClCompile>
+    <ClCompile Include="SpringGeneralModel.cpp">
+      <Filter>Source Files\Materials</Filter>
+    </ClCompile>
+    <ClCompile Include="SpringMaterialModels.cpp">
+      <Filter>Source Files\Materials</Filter>
+    </ClCompile>
+    <ClCompile Include="FileOperation.cpp">
+      <Filter>Source Files\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="IterationManager.cpp">
+      <Filter>Source Files\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="Solver.cpp">
+      <Filter>Source Files\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="pch.cpp">
+      <Filter>Source Files\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="Mass.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="Matrix.cpp">
+      <Filter>Source Files\Helpers\Matrix</Filter>
+    </ClCompile>
+    <ClCompile Include="MatrixOperation.cpp">
+      <Filter>Source Files\Helpers\Matrix</Filter>
+    </ClCompile>
+    <ClCompile Include="VectorOperation.cpp">
+      <Filter>Source Files\Helpers\Matrix</Filter>
+    </ClCompile>
+    <ClCompile Include="SeismicLoad.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="ImpulseLoad.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="TimeIntegrationMethod.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="ConsoleFEMTest.rc" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,23 @@
+# Don't track content of these folders
+VS_2019/.vs/
+VS_2019/ConsoleFEMTest/Debug/
+VS_2019/ConsoleFEMTest/Release/
+VS_2019/ConsoleFEMTest/x64/
+VS_2019/ConsoleFEMTest/Backup_Oct_4/
+VS_2019/Debug/
+VS_2019/Release/
+VS_2019/x64/
+
+# Compiled source #
+###################
+*.com
+*.class
+*.dll
+*.exe
+*.o
+*.so
+
+# Results and Input Files for Testing #
+###################
+*.xml
+*.res

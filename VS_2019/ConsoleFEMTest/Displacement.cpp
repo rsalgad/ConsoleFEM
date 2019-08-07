@@ -70,7 +70,7 @@ Matrix Displacement::GetTotalDisplacementMatrix(Matrix &m, std::vector<Support> 
 	return Matrix(disp, size, 1);
 }
 
-Matrix Displacement::GetTotalDisplacementNotOrganized(Matrix &m, std::vector<Support> &vecSup, std::vector<Node> &vecNode, std::vector<Spring3D> &listOfSpring, std::vector<std::vector<double>> &listOfPlasticDisp) {
+Matrix Displacement::GetTotalDisplacementNotOrganized(Matrix &m, std::vector<Support*> vecSup, std::vector<Node> &vecNode, std::vector<Spring3D> &listOfSpring, std::vector<std::vector<double>> &listOfPlasticDisp) {
 	int DOF = 6;
 	Matrix d(vecNode.size()*DOF, 1);
 

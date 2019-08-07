@@ -26,8 +26,8 @@ public:
 	void SetNodeList(std::vector<Node *> nodeList);
 	bool IsDOFRotational(int &DOF);
 	std::vector<int> GlobalDOFVector();
-	void CalculateGlobalDOFVector(std::vector<Support> &sup);
-	void CalculateGlobalMassDOFVector(std::vector<Mass> &massList, std::vector<Support> &supList);
+	void CalculateGlobalDOFVector(std::vector<Support*> supList);
+	void CalculateGlobalMassDOFVector(std::vector<Mass*> massList, std::vector<Support*> supList);
 	std::vector<std::vector<int>> GetGlobalDOFVector();
 	std::vector<std::vector<int>> GetGlobalMassDOFVector();
 	std::vector<std::vector<int>> GetGlobalRestDOFVector();

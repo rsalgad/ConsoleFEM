@@ -172,6 +172,46 @@ std::string SpringAxialModel::GetType()
 	return "Spring-Axial";
 }
 
+std::string SpringAxialModel::ToString()
+{
+	std::string str = "";
+	str += "(";
+	str += std::to_string(_ID);
+	str += ")";
+	str += "(";
+	str += "Initial Stiff = ";
+	str += std::to_string(_iniStiff);
+	str += ", ";
+	str += "Peak Displacement = ";
+	str += std::to_string(_dMax);
+	str += ", ";
+	str += "Peak Force = ";
+	str += std::to_string(_fMax);
+	str += ", ";
+	str += "Residual Force = ";
+	str += std::to_string(_fRes);
+	str += ", ";
+	str += "Ultimate Displacement = ";
+	str += std::to_string(_dUlt);
+	str += ", ";
+	str += "Unload Stiffness = ";
+	str += std::to_string(_unlStiff);
+	str += ", ";
+	str += "Unload Force = ";
+	str += std::to_string(_fUnl);
+	str += ", ";
+	str += "Connecting Stiffness = ";
+	str += std::to_string(_conStiff);
+	str += ", ";
+	str += "Reload Stiffness = ";
+	str += std::to_string(_relStiff);
+	str += ", ";
+	str += "Compressive Stiffness = ";
+	str += std::to_string(_compStiff);
+	str += ")";
+	return str;
+}
+
 double SpringAxialModel::GetEndElasticDisplacement(double disp, double maxD, double minD) {
 	double force = GetForceFromDisplacement(disp, maxD, minD);
 	return force / _unlStiff;

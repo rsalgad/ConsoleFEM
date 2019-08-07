@@ -167,7 +167,7 @@ std::vector<double> Spring3D::GlobalDOFVectorNotUsed() {
 //<summary>Returns the vector with the global DOF coordinates of the elements of the stiffness matrix of the element</summary>
 //<supList>The list of supports in the system</supList>
 //<comment>This list already accounts for the DOFs removed due to the supports</comment>
-void Spring3D::CalculateGlobalDOFVector(std::vector<Support> &supList) {
+void Spring3D::CalculateGlobalDOFVector(std::vector<Support*> supList) {
 	std::vector<std::vector<int>> vecFree;
 	std::vector<std::vector<int>> vecRestr;
 	std::vector<Node> nodeVec;
@@ -362,7 +362,7 @@ bool Spring3D::CheckMaterialNonlinearityConvergenceDispBased(std::vector<Spring3
 	return true;
 }
 
-std::vector<int> Spring3D::GetPlasticDispIndexes(std::vector<std::vector<double>>& listOfPlasticDisp, std::vector<Spring3D> &listOfSpring, std::vector<Support> &listOfSup)
+std::vector<int> Spring3D::GetPlasticDispIndexes(std::vector<std::vector<double>>& listOfPlasticDisp, std::vector<Spring3D> &listOfSpring, std::vector<Support*> listOfSup)
 {
 	int DOF = 6;
 	std::vector<int> vec;

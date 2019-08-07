@@ -16,6 +16,7 @@ public:
 	double GetShearStiffnessXZ();
 	double GetPoissonXY();
 	std::string GetType() override;
+	std::string ToString() override;
 	static OrthotropicElasticMaterial FindElasticMaterialByID(std::vector<OrthotropicElasticMaterial> listOfShellMaterials, int ID);
 	~OrthotropicElasticMaterial();
 

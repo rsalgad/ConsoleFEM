@@ -24,6 +24,59 @@ int Support::GetNode()
 	return _nodeID;
 }
 
+std::string Support::ToString()
+{
+	std::string sup = "";
+	sup += "(";
+	sup += std::to_string(_ID);
+	sup += ")";
+	sup += "(";
+	sup += "Node: ";
+	sup += std::to_string(_nodeID);
+	sup += ", ";
+	for (int i = 0; i < _support[0].size(); i++) {
+
+		if (i != 0)
+		{
+			sup += ", ";
+		}
+
+		sup += "Component ";
+		sup += (i + 1);
+		sup += ": ";
+		int dir = _support[i][0];
+
+		switch (dir)
+		{
+		case 1:
+			sup += "Translation X = ";
+			break;
+		case 2:
+			sup += "Translation Y = ";
+			break;
+		case 3:
+			sup += "Translation Z = ";
+			break;
+		case 4:
+			sup += "Rotation X = ";
+			break;
+		case 5:
+			sup += "Rotation Y = ";
+			break;
+		case 6:
+			sup += "Rotation Z = ";
+			break;
+		default:
+			break;
+		}
+		sup += std::to_string(_support[i][1]);
+	}
+
+	sup += ")";
+
+	return sup;
+}
+
 void Support::Set_tX(double val) {
 	std::vector<double> vec = { 1, val };
 	_support.push_back(vec);
@@ -72,13 +125,13 @@ int Support::NumberOfDOFBeforeNode(int nodeID, std::vector<Support> &sup) {
 	return counter;
 }
 
-int Support::NumberOfDOFBeforeDOF(int DOF, std::vector<Support> &sup) {
+int Support::NumberOfDOFBeforeDOF(int DOF, std::vector<Support*> sup) {
 	int counter = 0;
 	int size = 6;
 	for (int i = 0; i < sup.size(); i++) {
-		for (int j = 0; j < sup[i].GetSupportVector().size(); j++) {
-			if (sup[i].GetSupportVector()[j][1] == 0) { //I only want to do this if the support is a boundary condition
-				int supDOF = (sup[i].GetNode() - 1) * size + (sup[i].GetSupportVector()[j][0] - 1);
+		for (int j = 0; j < sup[i]->GetSupportVector().size(); j++) {
+			if (sup[i]->GetSupportVector()[j][1] == 0) { //I only want to do this if the support is a boundary condition
+				int supDOF = (sup[i]->GetNode() - 1) * size + (sup[i]->GetSupportVector()[j][0] - 1);
 				if (supDOF < DOF) {
 					counter++;
 				}
@@ -88,12 +141,12 @@ int Support::NumberOfDOFBeforeDOF(int DOF, std::vector<Support> &sup) {
 	return counter;
 }
 
-bool Support::IsDOFConstrained(int DOF, std::vector<Support> &sup) {
+bool Support::IsDOFConstrained(int DOF, std::vector<Support*> sup) {
 	int size = 6;
 	for (int i = 0; i < sup.size(); i++) {
-		for (int j = 0; j < sup[i].GetSupportVector().size(); j++) {
-			if (sup[i].GetSupportVector()[j][1] == 0) { //only constrained if displacement is 0
-				int supDOF = (sup[i].GetNode() - 1) * size + (sup[i].GetSupportVector()[j][0] - 1);
+		for (int j = 0; j < sup[i]->GetSupportVector().size(); j++) {
+			if (sup[i]->GetSupportVector()[j][1] == 0) { //only constrained if displacement is 0
+				int supDOF = (sup[i]->GetNode() - 1) * size + (sup[i]->GetSupportVector()[j][0] - 1);
 				if (supDOF == DOF) {
 					return true;
 				}
@@ -166,9 +219,9 @@ void Support::SortByNodeID(std::vector<Support> &sup) {
 	sup = sup1;
 }
 
-bool Support::IsNodeConstrained(std::vector<Support> &sup, int nodeID) {
+bool Support::IsNodeConstrained(std::vector<Support*> sup, int nodeID) {
 	for (int i = 0; i < sup.size(); i++) { //for each support
-		if (sup[i].GetNode() == nodeID) {
+		if (sup[i]->GetNode() == nodeID) {
 			return true;
 		}
 	}
@@ -185,14 +238,14 @@ void Support::SetSupportVector(std::vector<std::vector<double>> vec)
 	_support = vec;
 }
 
-std::vector<int> Support::GetDisplacementLoadIndexes(std::vector<Support> &vecSup) {
+std::vector<int> Support::GetDisplacementLoadIndexes(std::vector<Support*> vecSup) {
 	std::vector<int> vec;
 	int DOF = 6;
 	for (int i = 0; i < vecSup.size(); i++) { //for each support
-		for (int j = 0; j < vecSup[i].GetSupportVector().size(); j++) {
-			if (vecSup[i].GetSupportVector()[j][1] != 0) { //if zero, then it is a support, not a support load!
-				int nodeID = vecSup[i].GetNode();
-				int index = (nodeID - 1)*DOF + (vecSup[i].GetSupportVector()[j][0] - 1);
+		for (int j = 0; j < vecSup[i]->GetSupportVector().size(); j++) {
+			if (vecSup[i]->GetSupportVector()[j][1] != 0) { //if zero, then it is a support, not a support load!
+				int nodeID = vecSup[i]->GetNode();
+				int index = (nodeID - 1)*DOF + (vecSup[i]->GetSupportVector()[j][0] - 1);
 				int count = Support::NumberOfDOFBeforeDOF(index, vecSup);
 				vec.push_back(index - count);
 			}

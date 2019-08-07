@@ -119,7 +119,7 @@ std::vector<int> ShellElement::GlobalDOFVector() {
 
 //<summary>Calculates the global degree of freedom vector of the element</summary>
 //<comment>This is a vector that stores the global DOF position of each term in the local stiffness matrix. It returns the DOFs that are not constrained by a support. </comment>
-void ShellElement::CalculateGlobalDOFVector(std::vector<Support> &supList) {
+void ShellElement::CalculateGlobalDOFVector(std::vector<Support*> supList) {
 	std::vector<std::vector<int>> vecFree;
 	std::vector<std::vector<int>> vecRestr;
 
@@ -158,7 +158,7 @@ void ShellElement::CalculateGlobalDOFVector(std::vector<Support> &supList) {
 }
 
 
-void ShellElement::CalculateGlobalMassDOFVector(std::vector<Mass> &massList, std::vector<Support> &supList) {
+void ShellElement::CalculateGlobalMassDOFVector(std::vector<Mass*> massList, std::vector<Support*> supList) {
 	std::vector<std::vector<int>> vecMass;
 
 	int DOF = 6;

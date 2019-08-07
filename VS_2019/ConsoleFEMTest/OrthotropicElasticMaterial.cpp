@@ -64,6 +64,37 @@ std::string OrthotropicElasticMaterial::GetType()
 	return "Orthotropic-Elastic";
 }
 
+std::string OrthotropicElasticMaterial::ToString()
+{
+	std::string str = "";
+	str += "(";
+	str += std::to_string(_ID);
+	str += ")";
+	str += "(";
+	str += "Ex = ";
+	str += _Ex;
+	str += ", ";
+	str += "Ey = ";
+	str += _Ey;
+	str += ", ";
+	str += "Ex = ";
+	str += _Ex;
+	str += ", ";
+	str += "Vxy = ";
+	str += _vxy;
+	str += ", ";
+	str += "Gxy = ";
+	str += _Gxy;
+	str += ", ";
+	str += "Gyz = ";
+	str += _Gyz;
+	str += ", ";
+	str += "Gxz = ";
+	str += _Gxz;
+	str += ")";
+	return str;
+}
+
 OrthotropicElasticMaterial OrthotropicElasticMaterial::FindElasticMaterialByID(std::vector<OrthotropicElasticMaterial> listOfShellMaterials, int ID) {
 	for (int i = 0; i < listOfShellMaterials.size(); i++) {
 		if (listOfShellMaterials[i].GetID() == ID) {

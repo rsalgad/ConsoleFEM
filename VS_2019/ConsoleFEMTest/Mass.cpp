@@ -12,6 +12,62 @@ Mass::Mass(int ID, int nodeID)
 	_nodeID = nodeID;
 }
 
+std::string Mass::ToString()
+{
+	std::string mass = "";
+	mass += "(";
+	mass += std::to_string(_ID);
+	mass += ")";
+	mass += "(";
+	mass += "Node: ";
+	mass += std::to_string(_nodeID);
+	mass += ", ";
+
+	for (int i = 0; i < _mass[0].size(); i++) {
+
+		if (i != 0)
+		{
+			mass += ", ";
+		}
+
+		mass += "Component ";
+		mass += (i + 1);
+		mass += ": ";
+		int dir = _mass[i][0];
+
+		switch (dir)
+		{
+		case 1:
+			mass += "Translation X = ";
+			break;
+		case 2:
+			mass += "Translation Y = ";
+			break;
+		case 3:
+			mass += "Translation Z = ";
+			break;
+		case 4:
+			mass += "Rotation X = ";
+			break;
+		case 5:
+			mass += "Rotation Y = ";
+			break;
+		case 6:
+			mass += "Rotation Z = ";
+			break;
+		default:
+			break;
+		}
+
+		mass += std::to_string(_mass[i][1]);
+
+	}
+
+	mass += ")";
+
+	return mass;
+}
+
 int Mass::GetID()
 {
 	return _ID;
@@ -83,12 +139,12 @@ void Mass::SortByNodeID(std::vector<Mass> &mass) {
 	mass = mass1;
 }
 
-bool Mass::HasDOFAppliedMass(std::vector<Mass> &mass, int DOF) {
+bool Mass::HasDOFAppliedMass(std::vector<Mass*> mass, int DOF) {
 	int nDOF = 6;
 	for (int i = 0; i < mass.size(); i++) { //for each mass
-		int nodeID = mass[i].GetNode();
-		for (int j = 0; j < mass[i].GetMassVector().size(); j++) {
-			int calcDof = (nodeID - 1)*nDOF + (mass[i].GetMassVector()[j][0] - 1);
+		int nodeID = mass[i]->GetNode();
+		for (int j = 0; j < mass[i]->GetMassVector().size(); j++) {
+			int calcDof = (nodeID - 1)*nDOF + (mass[i]->GetMassVector()[j][0] - 1);
 			if (calcDof == DOF) {
 				return true;
 			}
@@ -97,7 +153,7 @@ bool Mass::HasDOFAppliedMass(std::vector<Mass> &mass, int DOF) {
 	return false;
 }
 
-Matrix Mass::AddExplicitMassesOnExistingMatrix(Matrix& shellMass, std::vector<Mass>& listOfMasses, std::vector<Support>& listOfSups)
+Matrix Mass::AddExplicitMassesOnExistingMatrix(Matrix& shellMass, std::vector<Mass>& listOfMasses, std::vector<Support*> listOfSups)
 {
 	Matrix newMass(MatrixOperation::CopyMatrixDouble(shellMass), shellMass.GetDimX(), shellMass.GetDimY());
 	int DOF = 6;

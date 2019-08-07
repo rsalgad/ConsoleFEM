@@ -12,6 +12,7 @@ public:
 	double GetStiffness();
 	double GetPoisson();
 	std::string GetType() override;
+	std::string ToString() override;
 	static ElasticMaterial FindElasticMaterialByID(std::vector<ElasticMaterial> listOfShellMaterials, int ID);
 	~ElasticMaterial();
 

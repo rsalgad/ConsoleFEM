@@ -34,6 +34,22 @@ std::string ElasticMaterial::GetType()
 	return "Elastic";
 }
 
+std::string ElasticMaterial::ToString()
+{
+	std::string str = "";
+	str += "(";
+	str += std::to_string(_ID);
+	str += ")";
+	str += "(";
+	str += "Ex = ";
+	str += _E;
+	str += ", ";
+	str += "Poisson = ";
+	str += _v;
+	str += ")";
+	return str;
+}
+
 ElasticMaterial ElasticMaterial::FindElasticMaterialByID(std::vector<ElasticMaterial> listOfShellMaterials, int ID) {
 	for (int i = 0; i < listOfShellMaterials.size(); i++) {
 		if (listOfShellMaterials[i].GetID() == ID) {

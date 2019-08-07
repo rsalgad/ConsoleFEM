@@ -151,7 +151,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element->QueryDoubleAttribute("elasticity", &E);
 			element->QueryDoubleAttribute("poisson", &v);
 			element->QueryIntText(&ID); //gets the attribute in between tags.
-			//ElasticMaterial mat(ID, E, v);
+			ElasticMaterial* mat = new ElasticMaterial(ID, E, v);
+			structManager.AddMaterial(mat);
 			listOfShellMaterials.emplace_back(ID, E, v); //add to the list of materials
 		}
 		else if (strcmp("OrthoElastic", type) == 0) {
@@ -163,7 +164,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element->QueryDoubleAttribute("gyz", &Gyz);
 			element->QueryDoubleAttribute("gxz", &Gxz);
 			element->QueryIntText(&ID); //gets the attribute in between tags.
-			//ElasticMaterial mat(ID, E, v);
+			OrthotropicElasticMaterial* mat = new OrthotropicElasticMaterial(ID, Ex, Ey, vxy, Gxy, Gyz, Gxz);
+			structManager.AddMaterial(mat);
 			listOfShellMaterials.emplace_back(ID, Ex, Ey, vxy, Gxy, Gyz, Gxz); //add to the list of materials
 		}
 		else if (strcmp("Spring-Axial", type) == 0) {
@@ -180,6 +182,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element->QueryDoubleAttribute("connectStiffness", &conStiff);
 			element->QueryDoubleAttribute("reloadStiffness", &relStiff);
 			element->QueryIntText(&ID); //gets the attribute in between tags.
+			SpringAxialModel* mat = new SpringAxialModel(ID, iniStiff, dMax, fMax, degStiff, fRes, dUlt, compStiff, unlStiff, fUnl, conStiff, relStiff);
+			structManager.AddMaterial(mat);
 			listOfSpringAxialMat.emplace_back(ID, iniStiff, dMax, fMax, degStiff, fRes, dUlt, compStiff, unlStiff, fUnl, conStiff, relStiff);
 			//listOfMaterials.push_back(&listOfSpringAxialMat[listOfSpringAxialMat.size() - 1]); //add to the list of materials
 		}
@@ -196,6 +200,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element->QueryDoubleAttribute("connectStiffness", &conStiff);
 			element->QueryDoubleAttribute("reloadStiffness", &relStiff);
 			element->QueryIntText(&ID); //gets the attribute in between tags.
+			SpringGeneralModel* mat = new SpringGeneralModel(ID, iniStiff, dMax, fMax, degStiff, fRes, dUlt, unlStiff, fUnl, conStiff, relStiff);
+			structManager.AddMaterial(mat);
 			listOfSpringGeneralMat.emplace_back(ID, iniStiff, dMax, fMax, degStiff, fRes, dUlt, unlStiff, fUnl, conStiff, relStiff);
 			//listOfMaterials.push_back(&listOfSpringGeneralMat[listOfSpringGeneralMat.size() - 1]); //add to the list of materials
 		}
@@ -233,6 +239,9 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element = element->NextSiblingElement("value");
 		}
 		std::string _status(status);
+		Load* load = new Load(ID, nodeID, _status);
+		load->SetLoadVector(loadVector);
+		structManager.AddLoad(load);
 		Load l(ID, nodeID, _status);
 		l.SetLoadVector(loadVector);
 		listOfLoads.emplace_back(l); //add to the list of loads
@@ -265,9 +274,12 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 				massVector.emplace_back(vec);
 				element = element->NextSiblingElement("value");
 			}
-			Mass m(ID, nodeID);
-			m.SetMassVector(massVector);
-			listOfMasses.emplace_back(m); //add to the list of masses
+			Mass* m = new Mass(ID, nodeID);
+			m->SetMassVector(massVector);
+			structManager.AddMass(m);
+			Mass mass(ID, nodeID);
+			mass.SetMassVector(massVector);
+			listOfMasses.emplace_back(mass); //add to the list of masses
 
 			element = root->FirstChildElement("masses")->FirstChildElement("mass");
 			for (int k = 0; k < i + 1; k++) {
@@ -297,9 +309,12 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			supVector.emplace_back(vec);
 			element = element->NextSiblingElement("value");
 		}
-		Support s(ID, nodeID);
-		s.SetSupportVector(supVector);
-		listOfSupports.emplace_back(s); //add to the list of loads
+		Support* s = new Support(ID, nodeID);
+		s->SetSupportVector(supVector);
+		structManager.AddSupport(s);
+		Support sup(ID, nodeID);
+		sup.SetSupportVector(supVector);
+		listOfSupports.emplace_back(sup); //add to the list of loads
 
 		element = root->FirstChildElement("boundaries")->FirstChildElement("boundary");
 		for (int k = 0; k < i + 1; k++) {

@@ -24,6 +24,64 @@ Load::Load(int ID, int nodeID, std::string status)
 	_status = status;
 }
 
+std::string Load::ToString()
+{
+	std::string load = "";
+	load += "(";
+	load += std::to_string(_ID);
+	load += ")";
+	load += "(";
+	load += "Node: ";
+	load += std::to_string(_nodeID);
+	load += ", ";
+	load += "Load Type: ";
+	load += _status;
+	load += ", ";
+	for (int i = 0; i < _load[0].size(); i++) {
+		
+		if (i != 0)
+		{
+			load += ", ";
+		}
+		
+		load += "Component ";
+		load += (i + 1);
+		load += ": ";
+		int dir = _load[i][0];
+		
+		switch (dir)
+		{
+			case 1:
+				load += "Fx = ";
+				break;
+			case 2: 
+				load += "Fy = ";
+				break;
+			case 3:
+				load += "Fz = ";
+				break;
+			case 4:
+				load += "Mx = ";
+				break;
+			case 5:
+				load += "My = ";
+				break;
+			case 6:
+				load += "Mz = ";
+				break;
+			default:
+				break;
+		}
+
+		load += std::to_string(_load[i][1]);
+
+	}
+	
+	load += ")";
+
+	return load;
+}
+
 int Load::GetID()
 {
 	return _ID;

@@ -249,12 +249,11 @@ void IterationManager::PerformAnalysisWithIterationsMatNonlinearDispBased(std::v
 }
 
 //Displacement-load method.
-void IterationManager::PerformDynamicAnalysisWithIterationsMatNonlinearDispBased(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, 
-																				 std::vector<Load> &listOfLoads, std::vector<Mass> &listOfMasses, std::vector<Support> &listOfSups, SeismicLoad &sLoad, 
+void IterationManager::PerformDynamicAnalysisWithIterationsMatNonlinearDispBased(StructureManager structManager, SeismicLoad &sLoad, 
 																			     ImpulseLoad &impLoad, int nIter, int nLoadSteps, std::string type, std::string& fileName) {
 
 	// <Start of setting up of variables useful during the analysis>
-	std::vector<Node> originalList = listOfNodes; //Gets a copy of the list of nodes in their original positions in case they get changed during the analysis
+	std::vector<Node*> originalList = listOfNodes; //Gets a copy of the list of nodes in their original positions in case they get changed during the analysis
 	int DOF = 6; //number of DOFs considered
 	std::vector<std::vector<Node>> nodesPerStep; //stores the new nodal coordinates after each complete iteration
 	std::vector<Matrix> forcePerStep; //stores the forces on each node at each completed loadstep

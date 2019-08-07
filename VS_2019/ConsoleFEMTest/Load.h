@@ -10,6 +10,7 @@ public:
 	Load();
 	Load(int ID, int nodeID);
 	Load(int ID, int nodeID, std::string status);
+	std::string ToString();
 	int GetID();
 	int GetNode();
 	std::string GetStatus();

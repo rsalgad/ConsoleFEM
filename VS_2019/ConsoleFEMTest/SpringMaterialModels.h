@@ -16,6 +16,7 @@ public:
 	virtual double GetForceFromDisplacement(double disp, double maxD, double minD) = 0;
 	virtual double GetYieldDisp() = 0;
 	virtual std::string GetType() = 0;
+	virtual std::string ToString() = 0;
 	virtual std::string GetLoadingStage(double disp, double maxD, double minD, std::string prevStage, double minUnlDisp, double maxRelDisp) = 0;
 	virtual double GetPlasticDisplacement(double disp, double maxD, double minD, std::string prevStage, std::string stage, double minUnlDisp, double maxRelDisp) = 0;
 	static SpringMaterialModels* FindSpringMaterialByID(std::vector<MaterialModel*> listOfMaterials, int ID);

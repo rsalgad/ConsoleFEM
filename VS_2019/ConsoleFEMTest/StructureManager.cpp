@@ -13,143 +13,100 @@ StructureManager::~StructureManager()
 }
 
 void StructureManager::AddNode(Node* node) {
-	_strucNodes.push_back(node);
+	_strucNodes.insert(std::make_pair(node->GetID(), node));
 }
 
-std::vector<Node*> StructureManager::Nodes()
+const std::map<int, Node*> StructureManager::Nodes()
 {
 	return _strucNodes;
 }
 
 Node* StructureManager::FindNodeByID(int ID) {
-	//this should be optimized
-	for (int i = 0; i < _strucNodes.size(); i++) {
-		if (_strucNodes[i]->GetID() == ID) {
-			return _strucNodes[i];
-		}
+	std::map<int, Node*>::iterator it = _strucNodes.find(ID);
+	if (it != _strucNodes.end()) {
+		return it->second;
+	}
+	else {
+		return nullptr;
 	}
 }
 
 Node* StructureManager::FindNodeByCoordinates(double x, double y, double z) {
-	//this should be optimized
-	for (int i = 0; i < _strucNodes.size(); i++) {
-		if (_strucNodes[i]->GetX() == x && _strucNodes[i]->GetY() == y && _strucNodes[i]->GetZ() == z) {
-			return _strucNodes[i];
-		}
+	std::map<int, Node*>::iterator it = _strucNodes.begin();
+	while (it != _strucNodes.end())
+	{
+		if (it->second->GetX() == x && it->second->GetY() == y && it->second->GetZ() == z)
+			return it->second;
+		it++;
 	}
+	return nullptr;
 }
 
 void StructureManager::AddShellElement(ShellElement* shell) {
-	_strucShells.push_back(shell);
+	_strucShells.insert(std::make_pair(shell->GetID(), shell));
 }
 
-std::vector<ShellElement*> StructureManager::ShellElements()
+const std::map<int, ShellElement*> StructureManager::ShellElements()
 {
 	return _strucShells;
 }
 
 void StructureManager::AddSpringElement(Spring3D* spring) {
-	_strucSprings.push_back(spring);
+	_strucSprings.insert(std::make_pair(spring->GetID(), spring));
 }
 
-std::vector<Spring3D*> StructureManager::SpringElements()
+const std::map<int, Spring3D*> StructureManager::SpringElements()
 {
 	return _strucSprings;
 }
 
 void StructureManager::AddLoad(Load* load) {
-	_strucLoads.push_back(load);
+	_strucLoads.insert(std::make_pair(load->GetID(), load));
+}
+
+const std::map<int, Load*> StructureManager::Loads()
+{
+	return _strucLoads;
 }
 
 void StructureManager::AddSupport(Support* sup) {
-	_strucSupports.push_back(sup);
+	_strucSupports.insert(std::make_pair(sup->GetID(), sup));
+}
+
+const std::map<int, Support*> StructureManager::Supports()
+{
+	return _strucSupports;
 }
 
 void StructureManager::AddMass(Mass* mass)
 {
-	_strucMasses.push_back(mass);
+	_strucMasses.insert(std::make_pair(mass->GetID(), mass));
+}
+
+const std::map<int, Mass*> StructureManager::Masses()
+{
+	return _strucMasses;
 }
 
 void StructureManager::AddMaterial(MaterialModel* mat)
 {
-	_strucMaterials.push_back(mat);
+	_strucMaterials.insert(std::make_pair(mat->GetID(), mat));
+}
+
+const std::map<int, MaterialModel*> StructureManager::Materials()
+{
+	return _strucMaterials;
 }
 
 MaterialModel* StructureManager::FindMaterialByID(int ID)
 {
-	for (int i = 0; i < _strucMaterials.size(); i++) {
-		if (_strucMaterials[i]->GetID() == ID) {
-			return _strucMaterials[i];
-		}
+	std::map<int, MaterialModel*>::iterator it = _strucMaterials.find(ID);
+	if (it != _strucMaterials.end()) {
+		return it->second;
 	}
-}
-
-void StructureManager::SortSupportsByNodeID()
-{
-	//IF I USE A MAP, NONE OF THIS IS REQUIRED
-	std::vector<Support*> sup1;
-	int index = 0, count = 0;
-
-	for (int j = 0; j < _strucSupports.size(); j++) { //for each support
-		int min = INT32_MAX;
-		for (int i = 0; i < _strucSupports.size(); i++) { //for each support
-			int nodeID = _strucSupports[i]->GetNode();
-			if (count == 0) {
-				if (nodeID < min) {
-					min = nodeID;
-					index = i;
-				}
-			}
-			else {
-				if (!(std::find(sup1.begin(), sup1.end(), _strucSupports[i]) != sup1.end())) {
-					//if is not inside the sup1 vector
-					if (nodeID < min) {
-						min = nodeID;
-						index = i;
-					}
-				}
-			}
-		}
-		sup1.push_back(_strucSupports[index]);
-		count++;
+	else {
+		return nullptr;
 	}
-
-	//Need to destroy the previous _strucSupports first before assigning it, otherwise memory leak
-	_strucSupports = sup1; 
-}
-
-void StructureManager::SortLoadsByNodeID()
-{
-	//IF I USE A MAP, NONE OF THIS IS REQUIRED
-	std::vector<Load*> load1;
-	int index = 0, count = 0;
-
-	for (int j = 0; j < _strucLoads.size(); j++) { //for each support
-		int min = INT32_MAX;
-		for (int i = 0; i < _strucLoads.size(); i++) { //for each support
-			int nodeID = _strucLoads[i]->GetNode();
-			if (count == 0) {
-				if (nodeID < min) {
-					min = nodeID;
-					index = i;
-				}
-			}
-			else {
-				if (!(std::find(load1.begin(), load1.end(), _strucLoads[i]) != load1.end())) {
-					//if is not inside the sup1 vector
-					if (nodeID < min) {
-						min = nodeID;
-						index = i;
-					}
-				}
-			}
-		}
-		load1.push_back(_strucLoads[index]);
-		count++;
-	}
-
-	//Need to destroy the previous _strucSupports first before assigning it, otherwise memory leak
-	_strucLoads = load1;
 }
 
 void StructureManager::PrintNodes() {

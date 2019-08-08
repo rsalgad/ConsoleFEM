@@ -6,6 +6,7 @@
 #include "ShellElement.h"
 #include "Spring3D.h"
 #include "Mass.h"
+#include <map>
 
 class StructureManager
 {
@@ -13,21 +14,22 @@ public:
 	StructureManager();
 	~StructureManager();
 	void AddNode(Node* node);
-	std::vector<Node*> Nodes();
+	const std::map<int, Node*> Nodes();
 	Node* FindNodeByID(int ID);
 	Node* FindNodeByCoordinates(double x, double y, double z);
 	void AddShellElement(ShellElement* shell);
-	std::vector<ShellElement*> ShellElements();
+	const std::map<int, ShellElement*> ShellElements();
 	void AddSpringElement(Spring3D* spring);
-	std::vector<Spring3D*> SpringElements();
+	const std::map<int, Spring3D*> SpringElements();
 	void AddLoad(Load* load);
+	const std::map<int, Load*> Loads();
 	void AddSupport(Support* sup);
+	const std::map<int, Support*> Supports();
 	void AddMass(Mass* mass);
+	const std::map<int, Mass*> Masses();
 	void AddMaterial(MaterialModel* mat);
+	const std::map<int, MaterialModel*> Materials();
 	MaterialModel* FindMaterialByID(int ID);
-
-	void SortSupportsByNodeID();
-	void SortLoadsByNodeID();
 
 	void PrintNodes();
 	void PrintShellElement();
@@ -40,13 +42,13 @@ public:
 	void CalculateSpringsGlobalDOFVector();
 
 private:
-	std::vector<Node*> _strucNodes;
-	std::vector<ShellElement*> _strucShells;
-	std::vector<Spring3D*> _strucSprings;
-	std::vector<Load*> _strucLoads;
-	std::vector<Support*> _strucSupports;
-	std::vector<Mass*> _strucMasses;
-	std::vector<MaterialModel*> _strucMaterials;
+	std::map<int, Node*> _strucNodes;
+	std::map<int, ShellElement*> _strucShells;
+	std::map<int, Spring3D*> _strucSprings;
+	std::map<int, Load*> _strucLoads;
+	std::map<int, Support*> _strucSupports;
+	std::map<int, Mass*> _strucMasses;
+	std::map<int, MaterialModel*> _strucMaterials;
 
 };
 

@@ -55,6 +55,11 @@ std::string Spring3D::ToString() {
 	return spring;
 }
 
+int Spring3D::GetID()
+{
+	return _ID;
+}
+
 //<summary>Returns the first node of the element</summary>
 Node Spring3D::GetNode1() {
 	return *_n1;

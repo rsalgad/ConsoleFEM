@@ -3,6 +3,8 @@
 #include "Matrix.h"
 #include "Node.h"
 #include "Support.h"
+#include "StructureManager.h"
+#include "PreAnalysisSetUp.h"
 
 class Load
 {
@@ -27,10 +29,10 @@ public:
 
 	static void SortByNodeID(std::vector<Load> &sup);
 	static Matrix GetTotalForceMatrix(Matrix& m, std::vector<Support> &vecSup, std::vector<Node>& vecNode, double& biggest, double fraction);
-	static Matrix AssembleLoadMatrix(std::vector<Node> &vecNode, std::vector<Load> &vecLoad);
+	static Matrix AssembleLoadMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp );
 	static Matrix AssembleLoadMatrixWithFlag(std::vector<Node> &vecNode, std::vector<Load> &vecLoad, std::string flag);
 	static Matrix AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Support> &vecSup);
-	static Matrix GetReducedLoadMatrix(Matrix &loadMatrix, std::vector<Support> &vecSup);
+	static Matrix GetReducedLoadMatrix(Matrix& loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF);
 	static std::vector<int> IdentifyIncrementalLoads(std::vector<Load> &vecLoad);
 	static Matrix MultiplyIncrementalTerms(Matrix &redLoadMatrix, std::vector<int> &incIndex, std::vector<Support> &vecSups, double mult);
 	static Matrix GetTotalForceNotOrganized(Matrix &m, Matrix &m2, std::vector<Support> &vecSup, std::vector<Node> &vecNode);

@@ -51,7 +51,7 @@ ShellElement::ShellElement(int ID, Node* n1, Node* n2, Node* n3, Node* n4, Node*
 	_v2 = Get_v2(_v3, _v1);
 }
 
-std::string ShellElement::ToString() {
+std::string ShellElement::ToString() const {
 	std::string shell = "";
 	shell += "(";
 	shell += std::to_string(_ID);
@@ -75,16 +75,16 @@ std::string ShellElement::ToString() {
 }
 
 //<summary>Returns the ID of the element</summary>
-int ShellElement::GetID() {
+int ShellElement::GetID() const {
 	return _ID;
 }
 
-double ShellElement::GetMassRho() {
+double ShellElement::GetMassRho() const {
 	return _massRho;
 }
 
 //<summary>Returns the global degree of freedom vector of the element</summary>
-std::vector<std::vector<int>> ShellElement::GetGlobalDOFVector() {
+const std::vector<std::vector<int>> ShellElement::GetGlobalDOFVector() const {
 	return _globalDOFList;
 }
 
@@ -99,6 +99,7 @@ std::vector<std::vector<int>> ShellElement::GetGlobalRestDOFVector() {
 
 //<summary>Calculates the global degree of freedom vector of the element</summary>
 //<comment>This is a vector that stores the global DOF position of each term in the local stiffness matrix. This function is deprecated. </comment>
+/*
 std::vector<int> ShellElement::GlobalDOFVector() {
 	std::vector<int> vec;
 	vec.reserve(6 * 9);
@@ -116,6 +117,7 @@ std::vector<int> ShellElement::GlobalDOFVector() {
 	}
 	return vec; // every 5 terms in the vector is related to a node coordinates in the global stiff matrix
 }
+*/
 
 //<summary>Calculates the global degree of freedom vector of the element</summary>
 //<comment>This is a vector that stores the global DOF position of each term in the local stiffness matrix. It returns the DOFs that are not constrained by a support. </comment>
@@ -207,7 +209,7 @@ void ShellElement::CalculateGlobalMassDOFVector(std::vector<Mass*> massList, std
 
 //<summary>Calculates the v1 vector used to defined the local axis of the element</summary>
 //<v3>The v3 vectors that is required to defined the v1 vector </v3>
-Matrix ShellElement::Get_v1(Matrix &v3) {
+Matrix ShellElement::Get_v1(Matrix &v3) const {
 	//creates a vector v1 which is used in the B Matrix
 
 	double** v1 = Matrix::CreateMatrixDouble(3, 1);
@@ -227,7 +229,7 @@ Matrix ShellElement::Get_v1(Matrix &v3) {
 //<first>Defines if the v3 vector is being calculated at startup of the element, or by subsequent calculations </first>
 //<e>The e position in natural coordinate that defines which point is being calculated </e>
 //<n>The n position in natural coordinate that defines which point is being calculated </n>
-Matrix ShellElement::Get_v3(bool first, double e, double n) {
+Matrix ShellElement::Get_v3(bool first, double e, double n) const {
 	Matrix unitV3(3, 1);
 	if (!first){
 		double rx = 0, ry = 0, rz = 0;
@@ -256,7 +258,7 @@ Matrix ShellElement::Get_v3(bool first, double e, double n) {
 //<summary>Calculates the v2 vector used to defined the local axis of the element</summary>
 //<v3>The v3 vectors that is required to defined the v2 vector </v3>
 //<v1>The v3 vectors that is required to defined the v2 vector </v1>
-Matrix ShellElement::Get_v2(Matrix &v3, Matrix &v1) {
+Matrix ShellElement::Get_v2(Matrix &v3, Matrix &v1) const {
 	Matrix V2 = VectorOperation::VectorCrossProduct(v3, v1);
 	Matrix unitV2 = VectorOperation::UnitVector(V2);
 	return unitV2;
@@ -264,7 +266,7 @@ Matrix ShellElement::Get_v2(Matrix &v3, Matrix &v1) {
 
 //<summary>Calculates the 3x3 local-global axis transformation matrix following the formulas in the Hyrnyk PhD thesis</summary>
 //<jacob>The jacobian matrix</jacob>
-Matrix ShellElement::GetTransformationMatrix3x3Hyrnyk(Matrix &jacob) {
+Matrix ShellElement::GetTransformationMatrix3x3Hyrnyk(const Matrix &jacob) const {
 	double** J = jacob.GetMatrixDouble();
 	double** vec1 = Matrix::CreateMatrixDouble(3, 1);
 	vec1[0][0] = J[0][0];
@@ -312,7 +314,7 @@ Matrix ShellElement::GetTransformationMatrix3x3Hyrnyk(Matrix &jacob) {
 //<summary>Calculates the 3x3 local-global axis transformation matrix following the formulas in the Hinton and Owen, 1984 book</summary>
 //<jacob>The jacobian matrix</jacob>
 //<comment>This function results in error. That might be some mistake with the formulations given by the book</comment>
-Matrix ShellElement::GetTransformationMatrix3x3Book(Matrix &jacob) {
+Matrix ShellElement::GetTransformationMatrix3x3Book(const Matrix &jacob) const {
 	double** J = jacob.GetMatrixDouble();
 
 	double** vec1 = Matrix::CreateMatrixDouble(3, 1);
@@ -351,7 +353,7 @@ Matrix ShellElement::GetTransformationMatrix3x3Book(Matrix &jacob) {
 
 //<summary>Calculates the 54x54 local-global axis transformation matrix following the formulas in the Hinton and Owen, 1984 book</summary>
 //<jacob>The jacobian matrix</jacob>
-Matrix ShellElement::GetTransformationMatrix(Matrix &jacob) {
+Matrix ShellElement::GetTransformationMatrix(const Matrix& jacob) const {
 	Matrix transform = GetTransformationMatrix3x3Hyrnyk(jacob); //For some reason the formulation contained in the book does not work
 
 	double** totalTransform = Matrix::CreateMatrixDouble(54);
@@ -517,7 +519,7 @@ double ShellElement::ShapeFunctionNDerivative(int i, char var, double &e, double
 
 //<summary>Returns the width of the element</summary>
 //<comment>Should only be used when the element is at its undeformed positions</comment>
-double ShellElement::GetWidth() {
+double ShellElement::GetWidth() const {
 	//Get the width based on the difference between nodes 1 and 2 x components.
 	Matrix vec = VectorOperation::VectorFromNodes(*_nodeList[0], *_nodeList[1]); // assumes that nodes 1 and 2 are the edge nodes in the x direction
 	double width = VectorOperation::VectorLength(vec);
@@ -527,7 +529,7 @@ double ShellElement::GetWidth() {
 
 //<summary>Returns the height of the element</summary>
 //<comment>Should only be used when the element is at its undeformed positions</comment>
-double ShellElement::GetHeight() {
+double ShellElement::GetHeight() const {
 	//Get the height based on the difference between nodes 2 and 3 y components.
 	Matrix vec = VectorOperation::VectorFromNodes(*_nodeList[0], *_nodeList[3]); // assumes that nodes 1 and 4 are the edge nodes in the y direction
 	double height = VectorOperation::VectorLength(vec);
@@ -536,18 +538,18 @@ double ShellElement::GetHeight() {
 }
 
 //<summary>Returns the thickness of the element</summary>
-double ShellElement::GetTotalThickness() {
+double ShellElement::GetTotalThickness() const {
 	return _thick * _layers;
 }
 
 //<summary>Returns the number of layers of the element</summary>
-double ShellElement::GetLayers() {
+double ShellElement::GetLayers() const {
 	return _layers;
 }
 
 //<summary>Returns the thickness of each layer of the element</summary>
 //<comment>Assumes uniform thickness</comment>
-double ShellElement::GetLayerThickness() {
+double ShellElement::GetLayerThickness() const {
 	return GetTotalThickness() /_layers;
 }
 
@@ -562,7 +564,7 @@ void ShellElement::SetNodeList(std::vector<Node *> nodeList) {
 }
 
 //<summary>Returns the complete (5x5) D matrix of the element</summary>
-Matrix ShellElement::GetDMatrix(OrthotropicElasticMaterial mat) {
+const Matrix ShellElement::GetDMatrix(OrthotropicElasticMaterial mat) const {
 	double alpha = 5.0 / 6.0;
 	double** D = Matrix::CreateMatrixDouble(5, 5);
 	//double v21 = mat.GetStiffnessY() * mat.GetPoissonXY() / mat.GetStiffnessX();
@@ -622,7 +624,7 @@ double ShellElement::GetRotZStiffTerm(Matrix &m) {
 //<e>The e location in natural coordinates</e>
 //<n>The n location in natural coordinates</n>
 //<c>The c location in natural coordinates</c>
-Matrix ShellElement::GetJacobian(double &e, double &n, double &c) {
+Matrix ShellElement::GetJacobian(double &e, double &n, double &c) const {
 	double** J = Matrix::CreateMatrixDouble(3);
 	double dNde, dNdn, N;
 	Matrix V3 = Get_v3(false, e, n);
@@ -658,7 +660,7 @@ Matrix ShellElement::GetJacobian(double &e, double &n, double &c) {
 //<n>The n location in natural coordinates</n>
 //<c>The c location in natural coordinates</c>
 //<Jacobian>The jacobian matrix</Jacobian>
-Matrix ShellElement::GetBMatrix(char type, double &e, double &n, double &c, Matrix &Jacobian) {
+const Matrix ShellElement::GetBMatrix(char type, double &e, double &n, double &c, const Matrix &Jacobian) const {
 	
 	Matrix V1, V2;
 	double** v1;
@@ -744,7 +746,7 @@ Matrix ShellElement::GetBMatrix(char type, double &e, double &n, double &c, Matr
 //<c>The c location in natural coordinates</c>
 //<Jacobian>The jacobian matrix</Jacobian>
 //<comment>To be used when shear and membrane-flexure matrices are calculated together</comment>
-Matrix ShellElement::GetTotalBMatrix(double &e, double &n, double &c, Matrix &Jacobian) {
+const Matrix ShellElement::GetTotalBMatrix(double &e, double &n, double &c, const Matrix &Jacobian) const {
 
 	Matrix V1, V2;
 	double** v1;
@@ -1042,7 +1044,7 @@ Matrix ShellElement::GetGlobalStiffMatrixSeparate() {
 
 //<summary>Calculates the global stiffness matrix for the element</summary>
 //<comment>It considers the same number of gauss integration points for membrane and shear matrices.</comment>
-Matrix ShellElement::GetGlobalStiffMatrix() {
+const Matrix ShellElement::GetGlobalStiffMatrix() const {
 	Matrix stiffMatrix(54, 54);
 
 	int pointLayer = 3; //number of integration points per layer
@@ -1076,9 +1078,9 @@ Matrix ShellElement::GetGlobalStiffMatrix() {
 				for (int k = 0; k < 3; k++) { // for the third gauss integration this should be relative to the number of layers the element has
 					//For each point in the Gauss Integration
 					//Matrix* DMatrix = &ShellElement::GetDMatrix(_matList[floor(k / 3)]); //to be used with layers
-					Matrix DMatrix = ShellElement::GetDMatrix(_matList[0]);
-					Matrix jacob3x3 = GetJacobian(gaussPoints[0][i], gaussPoints[1][j], gaussPoints[2][k]);
-					Matrix BMatrix = GetTotalBMatrix(gaussPoints[0][i], gaussPoints[1][j], gaussPoints[2][k], jacob3x3);
+					const Matrix DMatrix = ShellElement::GetDMatrix(_matList[0]);
+					const Matrix jacob3x3 = GetJacobian(gaussPoints[0][i], gaussPoints[1][j], gaussPoints[2][k]);
+					const Matrix BMatrix = GetTotalBMatrix(gaussPoints[0][i], gaussPoints[1][j], gaussPoints[2][k], jacob3x3);
 					Matrix transpB = MatrixOperation::Transpose(BMatrix);
 					double detJacob = MatrixOperation::DeterminantWithCofactor(jacob3x3, 3);
 					double constmult = w[i] * w[j] * w[k];
@@ -1110,12 +1112,12 @@ Matrix ShellElement::GetGlobalStiffMatrix() {
 //<complete>The complete matrix, defined somewhere else, used to store the values</complete>
 //<sup>The list of supports in the structure</sup>
 //<mu>A way of protecting the different threads of acessing the same information at the same time</mu>
-void ShellElement::AssembleCompleteGlobalMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::vector<Support> &sup, std::mutex& mu) {
+void ShellElement::AssembleCompleteGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu) {
 	int DOF = 6; //# of degrees of freedom in each shell element
 
-	for (int k = 0; k < vecEle.size(); k++) { // for each element
-		ShellElement* ele = &vecEle[k];
-		Matrix global = (ele->GetGlobalStiffMatrix()); //45x45 matrix returns
+	for (int k = 0; k < vecEle->size(); k++) { // for each element
+		const ShellElement* ele = (*vecEle)[k];
+		Matrix global = ele->GetGlobalStiffMatrix(); //45x45 matrix returns
 		std::vector<std::vector<int>> vec = ele->GetGlobalDOFVector();
 		int runs = vec.size(); //number of DOFs not restrained
 		for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix
@@ -1419,7 +1421,8 @@ Matrix ShellElement::GetMassMatrixNonZeroMassOnly(Matrix &m, std::vector<std::ve
 }
 
 bool ShellElement::IsDOFInTheNinthNode(int DOF, std::vector<ShellElement> &vecEle) {
-
+	//TODO:GlobalDOFVector is deprecated. Need to investigate why is this used here.
+	/*
 	for (int i = 0; i < vecEle.size(); i++) {
 		std::vector<int> vec = vecEle[i].GlobalDOFVector();
 		for (int j = 0; j < 3; j++) {
@@ -1428,6 +1431,7 @@ bool ShellElement::IsDOFInTheNinthNode(int DOF, std::vector<ShellElement> &vecEl
 			}
 		}
 	}
+	*/
 	return false;
 }
 

@@ -15,6 +15,7 @@
 #include "Spring3D.h"
 #include "OrthotropicElasticMaterial.h"
 #include "StructureManager.h"
+#include "Recorder.h"
 #include <fstream>
 
 using namespace tinyxml2;
@@ -463,16 +464,24 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 	}
 }
 
-void FileOperation::SaveIterationsResult(std::string fileName, std::vector<std::vector<Node>> result, std::vector<Node> originalList) {
-	std::ofstream myfile;
+void FileOperation::SaveIterationsResult(std::string fileName, const Recorder<Node*>* disps, const std::map<int, Node*>* nodes) {
 	
-	for (int i = 0; i < result.size(); i++) {
-		myfile.open(fileName + std::to_string(i + 1) + ".txt");
-		for (int j = 0; j < result[i].size(); j++) {
-			myfile << result[i][j].GetX() - originalList[j].GetX() << " " << result[i][j].GetY() - originalList[j].GetY() << " " << result[i][j].GetZ() - originalList[j].GetZ() << std::endl;
+	std::ofstream myfile;
+	std::map<int, std::map<int, Node*>>::const_iterator it = disps->GetRecord().begin();
+
+	while (it != disps->GetRecord().end()) { //number of records that were recorded
+		//error handling IO file
+		myfile.open(fileName + std::to_string(it->first) + ".txt");
+
+		for (int i = 0; i < nodes->size(); i++) {
+			std::map<int, Node*>::const_iterator dispIt = it->second.find(i + 1);
+			std::map<int, Node*>::const_iterator nodeIt = nodes->find(i + 1);
+			if (nodeIt != nodes->end()) {
+				myfile << nodeIt->second->GetX() - nodeIt->second->GetX() << " " << nodeIt->second->GetY() - nodeIt->second->GetY() << " " << nodeIt->second->GetZ() - nodeIt->second->GetZ() << std::endl;
+			}
 		}
-		myfile.close();
 	}
+	myfile.close();
 }
 
 void FileOperation::SaveIterationsForceResult(std::string fileName, std::vector<Matrix> result) {

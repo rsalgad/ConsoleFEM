@@ -9,13 +9,15 @@
 #include "Mass.h"
 #include "Support.h"
 #include "TimeIntegrationMethod.h"
+#include "PreAnalysisSetUp.h"
+#include "StructureManager.h"
 
 class IterationManager
 {
 public:
 	IterationManager();
 
-	static void PerformAnalysisWithIterations(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, std::vector<Load> &listOfLoads, std::vector<Support> &listOfSups, int nLoadSteps, std::string &fileName);
+	static void PerformAnalysisWithIterations(const StructureManager* structManager, const PreAnalysisSetUp* setUp, int nLoadSteps, std::string &fileName);
 	//static void PerformAnalysisWithIterationsGeomNonlinear(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, std::vector<Load> &listOfLoads, std::vector<Support> &listOfSups, int nIter, int nLoadSteps);
 	static void PerformAnalysisWithIterationsMatNonlinearDispBased(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, std::vector<Load> &listOfLoads, std::vector<Support> &listOfSups, int nIter, int nLoadSteps, std::string type, double cyclicRepeat, int stepsPerPeak, double peakInc, int cyclesPerPeak, double iniPeak, std::string &fileName);
 	static void PerformDynamicAnalysisWithIterationsMatNonlinearDispBased(StructureManager structManager, SeismicLoad &sLoad, ImpulseLoad &impLoad, int nIter, int nLoadSteps, std::string type, std::string& fileName);

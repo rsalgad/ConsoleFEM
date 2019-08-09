@@ -122,6 +122,12 @@
     <ClInclude Include="PreAnalysisSetUp.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="Element.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="Recorder.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConsoleFEMTest.cpp">
@@ -203,6 +209,12 @@
       <Filter>Source Files\Helpers</Filter>
     </ClCompile>
     <ClCompile Include="PreAnalysisSetUp.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Element.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="Recorder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

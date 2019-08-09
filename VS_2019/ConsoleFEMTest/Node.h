@@ -9,14 +9,14 @@ public:
 	Node(int ID, double x, double y, double z);
 	Node(int ID, double x, double y, double z, double rx, double ry, double rz);
 	~Node();
-	int GetID();
-	double GetX();
-	double GetY();
-	double GetZ();
-	double GetRx();
-	double GetRy();
-	double GetRz();
-	std::string ToString();
+	int GetID() const;
+	double GetX() const;
+	double GetY() const;
+	double GetZ() const;
+	double GetRx() const;
+	double GetRy() const;
+	double GetRz() const;
+	std::string ToString() const;
 
 	static Node FindNodeByID(int &ID, std::vector<Node> &vecNode);
 	static Node FindNodeByCoordinates(double x, double y, double z, std::vector<Node>& vecNode);

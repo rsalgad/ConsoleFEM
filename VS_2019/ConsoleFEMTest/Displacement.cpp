@@ -2,8 +2,8 @@
 #include "Displacement.h"
 #include "Spring3D.h"
 #include "ShellElement.h"
-#include <vector>
 #include <iostream>
+#include <map>
 
 
 Displacement::Displacement()
@@ -34,31 +34,32 @@ Matrix Displacement::GetRestrainedDispMatrix(std::vector<Support> &vecSup) {
 }
 
 
-Matrix Displacement::GetTotalDisplacementMatrix(Matrix &m, std::vector<Support> &vecSup, std::vector<Node> &vecNode) {
+Matrix Displacement::GetTotalDisplacementMatrix(Matrix &m, const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
 	//This function returns the full displacement vector from the reduced version
-	int DOF = 6; // for shell elements
-	int size = vecNode.size() * DOF;
 	int count = 0;
-	double** disp = Matrix::CreateMatrixDouble(size, 1);
+	double** disp = Matrix::CreateMatrixDouble(*setUp->StiffMatrixSize(), 1);
 
 	std::vector<int> vecPos;
 	std::vector<double> vecDisp;
 
-	for (int i = 0; i < vecSup.size(); i++) //for each support
-	{
-		for (int j = 0; j < vecSup[i].GetSupportVector().size(); j++) { //this will store all the global positions and displacement values in vectors
-			if (vecSup[i].GetSupportVector()[j][1] == 0) { //only do this if the support is a boundary condition
-				int nodeID = vecSup[i].GetNode();
-				int dir = vecSup[i].GetSupportVector()[j][0];
-				double disp = vecSup[i].GetSupportVector()[j][1];
-				vecPos.emplace_back((nodeID - 1)*DOF + (dir - 1));
+	std::map<int, Support*>::const_iterator it = structManager->Supports()->begin();
+	
+	//for each support
+	while (it != structManager->Supports()->end()) {
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) { //this will store all the global positions and displacement values in vectors
+			if (it->second->GetSupportVector()[j][1] == 0) { //only do this if the support is a boundary condition
+				int nodeID = it->second->GetNode();
+				int dir = it->second->GetSupportVector()[j][0];
+				double disp = it->second->GetSupportVector()[j][1];
+				vecPos.emplace_back((nodeID - 1) * (*setUp->DOF()) + (dir - 1));
 				vecDisp.emplace_back(disp);
 			}
 		}
+		it++;
 	}
 
 	int index = 0;
-	for (int i = 0; i < size; i++) { //for each term of the global D matrix
+	for (int i = 0; i < *setUp->StiffMatrixSize(); i++) { //for each term of the global D matrix
 		if (std::find(vecPos.begin(), vecPos.end(), i) != vecPos.end()) {//if i is within the vec of Position of supports
 			disp[i][0] = vecDisp[index];
 			index++;
@@ -67,7 +68,7 @@ Matrix Displacement::GetTotalDisplacementMatrix(Matrix &m, std::vector<Support> 
 			disp[i][0] = m.GetMatrixDouble()[i-index][0];
 		}
 	}
-	return Matrix(disp, size, 1);
+	return Matrix(disp, *setUp->StiffMatrixSize(), 1);
 }
 
 Matrix Displacement::GetTotalDisplacementNotOrganized(Matrix &m, std::vector<Support*> vecSup, std::vector<Node> &vecNode, std::vector<Spring3D> &listOfSpring, std::vector<std::vector<double>> &listOfPlasticDisp) {
@@ -114,6 +115,17 @@ std::vector<Node> Displacement::GetNewNodalCoordinates(std::vector<Node> &oriVec
 		newVec.emplace_back(nodeID, oriVec[i].GetX() + dispNode.GetMatrixDouble()[0][0], oriVec[i].GetY() + dispNode.GetMatrixDouble()[1][0], oriVec[i].GetZ() + dispNode.GetMatrixDouble()[2][0], oriVec[i].GetRx() + dispNode.GetMatrixDouble()[3][0], oriVec[i].GetRy() + dispNode.GetMatrixDouble()[4][0], oriVec[i].GetRz() + dispNode.GetMatrixDouble()[5][0]);
 	}
 	return newVec;
+}
+
+std::map<int, Node*> Displacement::GetNewNodalCoordinates(const std::map<int, Node*>* oriMap, Matrix& totalDisp) {
+	std::map<int, Node*> newMap;
+	std::map<int, Node*>::const_iterator it = oriMap.begin();
+	while (it != oriMap.end()) { //for each node we have in the problem
+		int nodeID = it->first;
+		Matrix dispNode = GetDisplacementByNodeID(nodeID, totalDisp);
+		newMap.insert(std::pair<int, Node*> (nodeID, new Node(nodeID, it->second->GetX() + dispNode.GetMatrixDouble()[0][0], it->second->GetY() + dispNode.GetMatrixDouble()[1][0], it->second->GetZ() + dispNode.GetMatrixDouble()[2][0], it->second->GetRx() + dispNode.GetMatrixDouble()[3][0], it->second->GetRy() + dispNode.GetMatrixDouble()[4][0], it->second->GetRz() + dispNode.GetMatrixDouble()[5][0])));
+	}
+	return newMap;
 }
 
 //This function is responsible for updating all the parameters relevant tot he identification of which region the spring is at in its cyclic material model

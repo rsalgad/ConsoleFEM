@@ -1,4 +1,5 @@
 #pragma once
+#include <map>
 #include <vector>
 
 class Support
@@ -25,7 +26,7 @@ public:
 	static int NumberOfDOFBeforeNode(int nodeID, std::vector<Support> &sup);
 	static int NumberOfDOFBeforeDOF(int DOF, std::vector<Support*> sup);
 	static bool IsDOFConstrained(int DOF, std::vector<Support*> sup);
-	static int TotalDOFsRestrained(std::vector<Support> &sup);
+	static int TotalDOFsRestrained(const std::map<int, Support*>* sup);
 	static std::vector<int> GetDisplacementLoadIndexes(std::vector<Support*> vecSup);
 private:
 	int _ID, _nodeID;

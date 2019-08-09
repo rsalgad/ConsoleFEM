@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Support.h"
 #include "Matrix.h"
+#include <map>
 #include <vector>
 
 
@@ -156,11 +157,12 @@ bool Support::IsDOFConstrained(int DOF, std::vector<Support*> sup) {
 	return false;
 }
 
-int Support::TotalDOFsRestrained(std::vector<Support> &sup) {
+int Support::TotalDOFsRestrained(const std::map<int, Support*>* sup) {
 	int counter = 0;
-	for (int i = 0; i < sup.size(); i++) {
-		for (int j = 0; j < sup[i].GetSupportVector().size(); j++) {
-			if (sup[i].GetSupportVector()[j][1] == 0) { //if is an actual support
+	std::map<int, Support*>::const_iterator it = sup->begin();
+	while (it != sup->end()) {
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) {
+			if (it->second->GetSupportVector()[j][1] == 0) { //if is an actual support
 				counter++;
 			}
 		}

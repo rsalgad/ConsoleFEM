@@ -47,7 +47,7 @@ Node Node::FindNodeByCoordinates(double x, double y, double z, std::vector<Node>
 	}
 }
 
-std::string Node::ToString() {
+std::string Node::ToString() const {
 	std::string row = "";
 	row += "(";
 	row += std::to_string(_ID);
@@ -62,32 +62,32 @@ std::string Node::ToString() {
 	return row;
 }
 
-int Node::GetID()
+int Node::GetID()  const
 {
 	return _ID;
 }
 
-double Node::GetX() {
+double Node::GetX() const{
 	return _x;
 }
 
-double Node::GetY() {
+double Node::GetY() const {
 	return _y;
 }
 
-double Node::GetZ() {
+double Node::GetZ() const {
 	return _z;
 }
 
-double Node::GetRx() {
+double Node::GetRx() const {
 	return _rx;
 }
 
-double Node::GetRy() {
+double Node::GetRy() const {
 	return _ry;
 }
 
-double Node::GetRz() {
+double Node::GetRz() const {
 	return _rz;
 }
 

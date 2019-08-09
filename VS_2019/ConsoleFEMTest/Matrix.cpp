@@ -16,7 +16,7 @@ Matrix::~Matrix()
 	}
 }
 
-void Matrix::Print() {
+void Matrix::Print() const {
 	std::string matrix = this->ToString();
 	std::cout << matrix << std::endl;
 }
@@ -52,7 +52,7 @@ Matrix::Matrix(int dim)
 //<matrix> Previously created double** with the values of the matrix </matrix>
 //<dimX> Number of lines </dimX>
 //<dimY> Number of columns </dimY>
-Matrix::Matrix(double** matrix, int dimX, int dimY) {
+Matrix::Matrix(double** matrix, const int dimX, const int dimY) {
 	_matrix = matrix;
 	_dimX = dimX;
 	_dimY = dimY;
@@ -61,7 +61,7 @@ Matrix::Matrix(double** matrix, int dimX, int dimY) {
 //<summary> Initializes a square matrix by passing its double array of contents and its dimension </summary> 
 //<matrix> Previously created double** with the values of the matrix </matrix>
 //<dim> Dimension </dim>
-Matrix::Matrix(double** matrix, int dim) {
+Matrix::Matrix(double** matrix, const int dim) {
 	_matrix = matrix;
 	_dimX = dim;
 	_dimY = dim;
@@ -82,7 +82,7 @@ void Matrix::SetDimensions(int dimX, int dimY) {
 }
 
 //<summary> Handles how the matrix is transformed to strings when it needs to be printed somewhere </summary> 
-std::string Matrix::ToString() {
+std::string Matrix::ToString() const {
 	std::string row = "";
 	if (_dimY != 1) {
 		for (int i = 0; i < _dimX; i++) {
@@ -162,7 +162,7 @@ void Matrix::DestroyMatrixDouble() {
 
 //<summary> Destroys the specified double**. </summary> 
 //<dimX> The line dimension of the double** </dimX> 
-void Matrix::DestroyMatrixDouble(double** d, int dimX) {
+void Matrix::DestroyMatrixDouble(double** d, const int dimX) {
 	for (int i = 0; i < dimX; i++) {
 		delete[] d[i];
 	}
@@ -257,7 +257,7 @@ Matrix Matrix::operator *(int const &n) {
 
 
 //Calculates the sparsity of the matrix
-double Matrix::Sparsity() {
+double Matrix::Sparsity() const {
 	double countNonZero = 0;
 	double countZero = 0;
 	for (int i = 0; i < _dimX; i++) {

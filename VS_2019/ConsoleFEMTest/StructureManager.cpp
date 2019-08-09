@@ -16,9 +16,12 @@ void StructureManager::AddNode(Node* node) {
 	_strucNodes.insert(std::make_pair(node->GetID(), node));
 }
 
-const std::map<int, Node*> StructureManager::Nodes()
+//the first 'const' means the returned map is constant (can't be changed)
+//the last 'const' means everything that will be done in this function
+//do not change the values of any class parameters.
+const std::map<int, Node*>* StructureManager::Nodes() const
 {
-	return _strucNodes;
+	return &_strucNodes;
 }
 
 Node* StructureManager::FindNodeByID(int ID) {
@@ -46,36 +49,36 @@ void StructureManager::AddShellElement(ShellElement* shell) {
 	_strucShells.insert(std::make_pair(shell->GetID(), shell));
 }
 
-const std::map<int, ShellElement*> StructureManager::ShellElements()
+const std::map<int, ShellElement*>* StructureManager::ShellElements() const
 {
-	return _strucShells;
+	return &_strucShells;
 }
 
 void StructureManager::AddSpringElement(Spring3D* spring) {
 	_strucSprings.insert(std::make_pair(spring->GetID(), spring));
 }
 
-const std::map<int, Spring3D*> StructureManager::SpringElements()
+const std::map<int, Spring3D*>* StructureManager::SpringElements() const
 {
-	return _strucSprings;
+	return &_strucSprings;
 }
 
 void StructureManager::AddLoad(Load* load) {
 	_strucLoads.insert(std::make_pair(load->GetID(), load));
 }
 
-const std::map<int, Load*> StructureManager::Loads()
+const std::map<int, Load*>* StructureManager::Loads() const
 {
-	return _strucLoads;
+	return &_strucLoads;
 }
 
 void StructureManager::AddSupport(Support* sup) {
 	_strucSupports.insert(std::make_pair(sup->GetID(), sup));
 }
 
-const std::map<int, Support*> StructureManager::Supports()
+const std::map<int, Support*>* StructureManager::Supports() const
 {
-	return _strucSupports;
+	return &_strucSupports;
 }
 
 void StructureManager::AddMass(Mass* mass)
@@ -83,9 +86,9 @@ void StructureManager::AddMass(Mass* mass)
 	_strucMasses.insert(std::make_pair(mass->GetID(), mass));
 }
 
-const std::map<int, Mass*> StructureManager::Masses()
+const std::map<int, Mass*>* StructureManager::Masses() const
 {
-	return _strucMasses;
+	return &_strucMasses;
 }
 
 void StructureManager::AddMaterial(MaterialModel* mat)
@@ -93,9 +96,9 @@ void StructureManager::AddMaterial(MaterialModel* mat)
 	_strucMaterials.insert(std::make_pair(mat->GetID(), mat));
 }
 
-const std::map<int, MaterialModel*> StructureManager::Materials()
+const std::map<int, MaterialModel*>* StructureManager::Materials() const
 {
-	return _strucMaterials;
+	return &_strucMaterials;
 }
 
 MaterialModel* StructureManager::FindMaterialByID(int ID)

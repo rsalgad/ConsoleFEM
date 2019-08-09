@@ -25,7 +25,7 @@ Matrix VectorOperation::UnitVecZ() {
 //<summary> Returns a vector that connects n2 and n1. The vector will point towards n2. </summary>
 //<n1> The origin node of the vector </n1>
 //<n2> The 'tip' node of the vector </n2>
-Matrix VectorOperation::VectorFromNodes(Node &n1, Node &n2) {
+Matrix VectorOperation::VectorFromNodes(const Node &n1, const Node &n2) {
 	double** vector = Matrix::CreateMatrixDouble(3, 1);
 	vector[0][0] = n2.GetX() - n1.GetX();
 	vector[1][0] = n2.GetY() - n1.GetY();
@@ -34,7 +34,7 @@ Matrix VectorOperation::VectorFromNodes(Node &n1, Node &n2) {
 }
 
 //<summary> Performs the cross product of two vectors </summary>
-Matrix VectorOperation::VectorCrossProduct(Matrix &n1, Matrix &n2) {
+Matrix VectorOperation::VectorCrossProduct(const Matrix &n1, const Matrix &n2) {
 	double** vector = Matrix::CreateMatrixDouble(3, 1);
 	vector[0][0] = n1.GetMatrixDouble()[1][0] * n2.GetMatrixDouble()[2][0] - n2.GetMatrixDouble()[1][0] * n1.GetMatrixDouble()[2][0];
 	vector[1][0] = -(n1.GetMatrixDouble()[0][0] * n2.GetMatrixDouble()[2][0] - n2.GetMatrixDouble()[0][0] * n1.GetMatrixDouble()[2][0]);
@@ -43,13 +43,13 @@ Matrix VectorOperation::VectorCrossProduct(Matrix &n1, Matrix &n2) {
 }
 
 //<summary> Calculates the length of a given vector </summary>
-double VectorOperation::VectorLength(Matrix &vec) {
+double VectorOperation::VectorLength(const  Matrix &vec) {
 	return sqrt(pow(vec.GetMatrixDouble()[0][0], 2) + pow(vec.GetMatrixDouble()[1][0], 2) + pow(vec.GetMatrixDouble()[2][0], 2));
 }
 
 //<summary>Rotates a vector in the global X direction </summary>
 //<angle>The angle to rotate, in radians </angle>
-Matrix VectorOperation::RotateVectorX(Matrix &vec, double angle) {
+Matrix VectorOperation::RotateVectorX(const Matrix &vec, const double angle) {
 	Matrix rot(3);
 	double cos = std::cos(angle);
 	double sin = std::sin(angle);
@@ -65,7 +65,7 @@ Matrix VectorOperation::RotateVectorX(Matrix &vec, double angle) {
 
 //<summary>Rotates a vector in the global Y direction </summary>
 //<angle>The angle to rotate, in radians </angle>
-Matrix VectorOperation::RotateVectorY(Matrix &vec, double angle) {
+Matrix VectorOperation::RotateVectorY(const Matrix &vec, const double angle) {
 	Matrix rot(3);
 	double cos = std::cos(angle);
 	double sin = std::sin(angle);
@@ -81,7 +81,7 @@ Matrix VectorOperation::RotateVectorY(Matrix &vec, double angle) {
 
 //<summary>Rotates a vector in the global Z direction </summary>
 //<angle>The angle to rotate, in radians </angle>
-Matrix VectorOperation::RotateVectorZ(Matrix &vec, double angle) {
+Matrix VectorOperation::RotateVectorZ(const Matrix &vec, const double angle) {
 	Matrix rot(3);
 	double cos = std::cos(angle);
 	double sin = std::sin(angle);
@@ -99,7 +99,7 @@ Matrix VectorOperation::RotateVectorZ(Matrix &vec, double angle) {
 //<angleX>The angle to rotate in the global X, in radians </angleX>
 //<angleY>The angle to rotate in the global Y, in radians </angleY>
 //<angleZ>The angle to rotate in the global Z, in radians </angleZ>
-Matrix VectorOperation::RotateVectorIn3D(Matrix &vec, double angleX, double angleY, double angleZ) {
+Matrix VectorOperation::RotateVectorIn3D(const Matrix &vec, const double angleX, const double angleY, const double angleZ) {
 	Matrix rotX(3);
 	Matrix rotY(3);
 	Matrix rotZ(3);
@@ -131,7 +131,7 @@ Matrix VectorOperation::RotateVectorIn3D(Matrix &vec, double angleX, double angl
 }
 
 //<summary>Returns the unit vector of a specified vector </summary>
-Matrix VectorOperation::UnitVector(Matrix &vec) {
+Matrix VectorOperation::UnitVector(const Matrix &vec) {
 	double length = VectorLength(vec);
 	double** vector = Matrix::CreateMatrixDouble(3, 1);
 	vector[0][0] = vec.GetMatrixDouble()[0][0] / length;

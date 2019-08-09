@@ -8,14 +8,14 @@ public:
 	static Matrix UnitVecX();
 	static Matrix UnitVecY();
 	static Matrix UnitVecZ();
-	static Matrix RotateVectorX(Matrix &vec, double angle);
-	static Matrix RotateVectorY(Matrix &vec, double angle);
-	static Matrix RotateVectorZ(Matrix &vec, double angle);
-	static Matrix RotateVectorIn3D(Matrix &vec, double angleX, double angleY, double angleZ);
-	static Matrix VectorFromNodes(Node &n1, Node &n2);
-	static Matrix VectorCrossProduct(Matrix &v1, Matrix &v2);
-	static Matrix UnitVector(Matrix &vec);
-	static double VectorLength(Matrix &vec);
+	static Matrix RotateVectorX(const Matrix &vec, const double angle);
+	static Matrix RotateVectorY(const Matrix &vec, const double angle);
+	static Matrix RotateVectorZ(const Matrix &vec, const double angle);
+	static Matrix RotateVectorIn3D(const Matrix &vec, const double angleX, const double angleY, const double angleZ);
+	static Matrix VectorFromNodes(const Node &n1, const Node &n2);
+	static Matrix VectorCrossProduct(const Matrix &v1, const Matrix &v2);
+	static Matrix UnitVector(const Matrix &vec);
+	static double VectorLength(const Matrix &vec);
 
 private:
 	VectorOperation();

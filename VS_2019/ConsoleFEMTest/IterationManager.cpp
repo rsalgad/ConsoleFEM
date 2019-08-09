@@ -10,6 +10,8 @@
 #include "FileOperation.h"
 #include "MatrixOperation.h"
 #include "TimeIntegrationMethod.h"
+#include "Recorder.h"
+#include "PreAnalysisSetUp.h"
 #include <iostream>
 #include <fstream>
 
@@ -19,34 +21,32 @@ IterationManager::IterationManager()
 }
 
 //For elastic analysis only (with loadsteps, if wanted) working
-void IterationManager::PerformAnalysisWithIterations(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, std::vector<Load> &listOfLoads, std::vector<Support> &listOfSups, int nLoadSteps, std::string &fileName) {
-	std::vector<Node> originalList = listOfNodes;
-	std::vector<std::vector<Node>> nodesPerIter;
-	nodesPerIter.reserve(nLoadSteps);
-	double div = (1.0 / nLoadSteps);
-	std::vector<std::vector<ShellElement>> shellElemVecs = Solver::SetUpThreadsForShells(listOfShells, std::thread::hardware_concurrency());
+void IterationManager::PerformAnalysisWithIterations(const StructureManager* structManager, const PreAnalysisSetUp* setUp, int nLoadSteps, std::string &fileName) {
 
+	Recorder<Node*>* dispRecorder = new Recorder<Node*>();
+	
+	double div = (1.0 / nLoadSteps);
 
 	//Perform the initial iteration (will occur even when no iterations are specified)
 	//The analysis is always performed on the original, undeformed, configuration of the structure, but with increasing load.
-	Matrix mRed = Solver::CompleteStiffnessMatrixWithThreadsDispBased(listOfNodes, listOfShells, listOfSprings, listOfSups, std::thread::hardware_concurrency(), shellElemVecs);
-	Matrix F = Load::AssembleLoadMatrix(listOfNodes, listOfLoads);
+	Matrix mRed = Solver::ReducedStiffnessMatrix(structManager, setUp);
+	Matrix F = Load::AssembleLoadMatrix(structManager, setUp);
 
 	//start to perform the load steps
 	for (int step = 0; step < nLoadSteps; step++) {
 		Matrix Fmult = F * div * (step + 1);
-		Matrix F_iter = Load::GetReducedLoadMatrix(Fmult, listOfSups);
+		Matrix F_iter = Load::GetReducedLoadMatrix(Fmult, structManager->Supports(), setUp->DOF());
 		Matrix Cholesky = MatrixOperation::CholeskyDecomposition(mRed);
 		Matrix CholeskyTransp = MatrixOperation::Transpose(Cholesky);
 		Matrix interMatrix = MatrixOperation::ForwardSubstitution(Cholesky, F_iter);
 		Matrix d_iter = MatrixOperation::BackSubstitution(CholeskyTransp, interMatrix);
-		Matrix completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, listOfSups, listOfNodes);
+		Matrix completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, structManager, setUp);
 
-		nodesPerIter.emplace_back(Displacement::GetNewNodalCoordinates(listOfNodes, completeD_iter)); //this will put the new nodal coordinates on the 'nodesPerIter'
-		//nodesPerIter.emplace_back(completeD_iter); //this will put only the displacements in the 'nodesPerIter'
+		//this is just a recorder. It is not being used for the rest of the analysis
+		dispRecorder->Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_iter)); //this will put the new nodal coordinates on the 'nodesPerIter'
 	}
 
-	FileOperation::SaveIterationsResult("LoadStep", nodesPerIter, originalList);
+	FileOperation::SaveIterationsResult("LoadStep", dispRecorder, structManager->Nodes());
 }
 
 //Displacement-load method.

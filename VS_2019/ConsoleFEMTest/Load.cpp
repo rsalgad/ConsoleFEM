@@ -2,9 +2,9 @@
 #include "Load.h"
 #include "Support.h"
 #include "MatrixOperation.h"
-#include <vector>
+#include "StructureManager.h"
+#include "PreAnalysisSetUp.h"
 #include <iostream>
-#include <string>
 
 
 Load::Load()
@@ -172,20 +172,26 @@ void Load::SortByNodeID(std::vector<Load> &load) {
 	load = load1;
 }
 
-Matrix Load::AssembleLoadMatrix(std::vector<Node> &vecNode, std::vector<Load> &vecLoad) {
+Matrix Load::AssembleLoadMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
 	// Assemble the total load matrix. The vector of loads MUST be already sorted when it is passed.
-	int DOF = 6; //For Shell Elements
-	int size = vecNode.size() * DOF;
-	double** complete = Matrix::CreateMatrixDouble(size, 1);
-	for (int i = 0; i < vecLoad.size(); i++) { //for each Load instance
-		int node = vecLoad[i].GetNode(); //get node ID
-		for (int j = 0; j < vecLoad[i].GetLoadVector().size(); j++) { //for each load vector
-			int dir = vecLoad[i].GetLoadVector()[j][0];
-			double load = vecLoad[i].GetLoadVector()[j][1];
-			complete[(node - 1) * DOF + (dir - 1)][0] = load;
+	const int* DOF = setUp->DOF();
+	double** complete = Matrix::CreateMatrixDouble(*setUp->StiffMatrixSize(), 1);
+	
+
+	std::map<int, Load*>::const_iterator it = structManager->Loads()->begin();		
+	//for each Load instance
+	while (it != structManager->Loads()->end()) {
+		int node = it->second->GetNode(); //get node ID
+		
+		 //for each load vector
+		for (int j = 0; j < it->second->GetLoadVector().size(); j++) {
+			int dir = it->second->GetLoadVector()[j][0];
+			double load = it->second->GetLoadVector()[j][1];
+			complete[(node - 1) * (*DOF) + (dir - 1)][0] = load;
 		}
+		it++;
 	}
-	return Matrix(complete, size, 1);
+	return Matrix(complete, *setUp->StiffMatrixSize(), 1);
 }
 
 Matrix Load::AssembleLoadMatrixWithFlag(std::vector<Node> &vecNode, std::vector<Load> &vecLoad, std::string flag) {
@@ -224,22 +230,30 @@ Matrix Load::AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Supp
 	return Matrix(complete, size, 1);
 }
 
-Matrix Load::GetReducedLoadMatrix(Matrix &loadMatrix, std::vector<Support> &vecSup) {
+Matrix Load::GetReducedLoadMatrix(Matrix &loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF) {
 	// Returns the load matrix minus the rows associated with support conditions.
 	// The vector of loads MUST be already sorted when it is passed.
 
-	int DOF = 6;
 	int remove = 0; //keeps track of the amount of loads that were removed from the matrix
 	Matrix reduced(MatrixOperation::CopyMatrixDouble(loadMatrix), loadMatrix.GetDimX(), loadMatrix.GetDimY());
-	for (int i = 0; i < vecSup.size(); i++) { //for each Support
-		int node = vecSup[i].GetNode();
-		for (int j = 0; j < vecSup[i].GetSupportVector().size(); j++) { // for each direction of support
-			if (vecSup[i].GetSupportVector()[j][1] == 0) { //only do this if the type of support is really a constraint, not a displacement load
-				int dir = vecSup[i].GetSupportVector()[j][0];
-				reduced = MatrixOperation::DeleteRow(reduced, (node - 1) * DOF + (dir - 1) - remove);
+	
+	std::map<int, Support*>::const_iterator it = mapSup->begin();
+	
+	//for each Support
+	while (it != mapSup->end()) {
+		int node = it->second->GetNode(); //node ID
+
+		// for each direction of support
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) { 
+			
+			//only do this if the type of support is really a constraint (i.e., = 0), not a displacement load
+			if (it->second->GetSupportVector()[j][1] == 0) { 
+				int dir = it->second->GetSupportVector()[j][0];
+				reduced = MatrixOperation::DeleteRow(reduced, (node - 1) * *DOF + (dir - 1) - remove);
 				remove++;
 			}
 		}
+		it++;
 	}
 	return reduced;
 }

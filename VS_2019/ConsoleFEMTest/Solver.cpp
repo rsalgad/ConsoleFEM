@@ -6,6 +6,8 @@
 #include "Support.h"
 #include "Mass.h"
 #include "MatrixOperation.h"
+#include "StructureManager.h"
+#include "PreAnalysisSetUp.h"
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -65,25 +67,32 @@ Matrix Solver::CompleteStiffnessMatrixWithThreads(std::vector<Node> &listOfNodes
 
 //<summary>Calculates the complete stiffness matrix with threads based on the displacement based theory</summary>
 
-Matrix Solver::CompleteStiffnessMatrixWithThreadsDispBased(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, std::vector<Support> &listOfSupports, int nThreads, std::vector<std::vector<ShellElement>> &shellElemVecs)
-{
-	int DOF = 6;
-	int size = listOfNodes.size()*DOF - Support::TotalDOFsRestrained(listOfSupports);
-	Matrix m(size, size);
+Matrix Solver::ReducedStiffnessMatrix(const StructureManager* structManager,const PreAnalysisSetUp* setUp)
+{	
+	Matrix m(setUp->ReducedStiffMatrixSize(), setUp->ReducedStiffMatrixSize());
 
-	if (listOfShells.size() != 0) {
+	if (structManager->ShellElements()->size() != 0) {
 		std::mutex matrixLock;
 		std::vector<std::thread> threadList;
-		for (int i = 0; i < (nThreads - 1); i++) {
-			threadList.emplace_back(ShellElement::AssembleCompleteGlobalMatrixThreads, std::ref(shellElemVecs[i]), std::ref(m), std::ref(listOfSupports), std::ref(matrixLock));
+		std::map<int, std::vector<ShellElement*>>::const_iterator it;
+		
+		for (int i = 0; i < (setUp->AvailableThreads - 1); i++) {
+			it = setUp->GetShellThreads()->find(i + 1);
+			if (it != setUp->GetShellThreads()->end()) {
+				threadList.emplace_back(ShellElement::AssembleCompleteGlobalMatrixThreads, &it->second, std::ref(m), std::ref(matrixLock));
+			}
 		}
-		ShellElement::AssembleCompleteGlobalMatrixThreads(shellElemVecs.back(), m, listOfSupports, matrixLock);
+
+		it = setUp->GetShellThreads()->end();
+		ShellElement::AssembleCompleteGlobalMatrixThreads(&it->second, m, matrixLock);
 
 		for (int i = 0; i < threadList.size(); i++) {
 			threadList[i].join();
 		}
 	}
 
+
+	//Why is this commented out? The springs are not included in the Stiffness Matrix?
 	/*
 	if (listOfSprings.size() != 0) {
 		Spring3D::AssembleSpringGlobalMatrixOnCompleteDispBased(listOfSprings, m);
@@ -165,38 +174,6 @@ void Solver::CompleteSpringRestrictedStiffMatrixThreadsDispBasedAfterShells(std:
 	if (listOfSprings.size() != 0) {
 		Spring3D::AssembleSpringGlobalRestrictedMatrixOnCompleteDispBased(listOfSprings, m, sup, listOfDisp, listOfMinDisp, listOfMaxDisp, listOfPlasticDisp, listOfLoadStage, listOfStage, listOfUnlDisp, listOfRelDisp);
 	}
-}
-
-//<summary>Sets up the list of elements that each thread will be responsible for</summary>
-std::vector<std::vector<ShellElement>> Solver::SetUpThreadsForShells(std::vector<ShellElement> &listOfShells, int nThreads) {
-	double amount = listOfShells.size() / nThreads;
-	int size1, size2;
-	if (fmod(listOfShells.size(), nThreads) != 0) {
-		size1 = floor(amount);
-		size2 = fmod(amount, nThreads) * nThreads;
-	}
-	else {
-		size1 = amount;
-		size2 = 0;
-	}
-
-	std::vector<std::vector<ShellElement>> shellElemVecs;
-
-	for (int i = 0; i < nThreads; i++) {
-		if (i < (nThreads - 1))
-		{
-			std::vector<ShellElement> list;
-			list.assign(listOfShells.begin() + i * size1, listOfShells.begin() + (i + 1)*size1);
-			shellElemVecs.push_back(list);
-		}
-		else {
-			std::vector<ShellElement> list;
-			list.assign(listOfShells.begin() + i * size1, listOfShells.end());
-			shellElemVecs.push_back(list);
-		}
-	}
-
-	return shellElemVecs;
 }
 
 void Solver::DisplacementLoadStiffness(Matrix& stiff, std::vector<Support> &listOfSup, double &biggest) {

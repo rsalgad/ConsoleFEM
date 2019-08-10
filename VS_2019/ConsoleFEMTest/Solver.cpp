@@ -69,27 +69,7 @@ Matrix Solver::CompleteStiffnessMatrixWithThreads(std::vector<Node> &listOfNodes
 
 Matrix Solver::ReducedStiffnessMatrix(const StructureManager* structManager,const PreAnalysisSetUp* setUp)
 {	
-	Matrix m(setUp->ReducedStiffMatrixSize(), setUp->ReducedStiffMatrixSize());
-
-	if (structManager->ShellElements()->size() != 0) {
-		std::mutex matrixLock;
-		std::vector<std::thread> threadList;
-		std::map<int, std::vector<ShellElement*>>::const_iterator it;
-		
-		for (int i = 0; i < (setUp->AvailableThreads - 1); i++) {
-			it = setUp->GetShellThreads()->find(i + 1);
-			if (it != setUp->GetShellThreads()->end()) {
-				threadList.emplace_back(ShellElement::AssembleCompleteGlobalMatrixThreads, &it->second, std::ref(m), std::ref(matrixLock));
-			}
-		}
-
-		it = setUp->GetShellThreads()->end();
-		ShellElement::AssembleCompleteGlobalMatrixThreads(&it->second, m, matrixLock);
-
-		for (int i = 0; i < threadList.size(); i++) {
-			threadList[i].join();
-		}
-	}
+	Matrix m = ReducedShellStiffMatrix(structManager, setUp);
 
 
 	//Why is this commented out? The springs are not included in the Stiffness Matrix?
@@ -102,18 +82,23 @@ Matrix Solver::ReducedStiffnessMatrix(const StructureManager* structManager,cons
 }
 
 //<summary>Calculates the complete stiffness matrix of the shell elements with threads based on the force based theory</summary>
-Matrix Solver::CompleteShellStiffMatrixThreads(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Support> &listOfSupports, int nThreads, std::vector<std::vector<ShellElement>> &shellElemVecs) {
-	int DOF = 6;
-	int size = listOfNodes.size()*DOF - Support::TotalDOFsRestrained(listOfSupports);
-	Matrix m(size, size);
+Matrix Solver::ReducedShellStiffMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
+	Matrix m(*setUp->ReducedStiffMatrixSize(), *setUp->ReducedStiffMatrixSize());
 
-	if (listOfShells.size() != 0) {
+	if (structManager->ShellElements()->size() != 0) {
 		std::mutex matrixLock;
 		std::vector<std::thread> threadList;
-		for (int i = 0; i < (nThreads - 1); i++) {
-			threadList.emplace_back(ShellElement::AssembleCompleteGlobalMatrixThreads, std::ref(shellElemVecs[i]), std::ref(m), std::ref(listOfSupports), std::ref(matrixLock));
+		std::map<int, std::vector<ShellElement*>>::const_iterator it;
+
+		for (int i = 0; i < (setUp->AvailableThreads - 1); i++) {
+			it = setUp->GetShellThreads()->find(i + 1);
+			if (it != setUp->GetShellThreads()->end()) {
+				threadList.emplace_back(ShellElement::AssembleCompleteGlobalMatrixThreads, &it->second, std::ref(m), std::ref(matrixLock));
+			}
 		}
-		ShellElement::AssembleCompleteGlobalMatrixThreads(shellElemVecs.back(), m, listOfSupports, matrixLock);
+
+		it = setUp->GetShellThreads()->end();
+		ShellElement::AssembleCompleteGlobalMatrixThreads(&it->second, m, matrixLock);
 
 		for (int i = 0; i < threadList.size(); i++) {
 			threadList[i].join();
@@ -143,19 +128,25 @@ Matrix Solver::CompleteShellMassMatrixThreads(std::vector<Node> &listOfNodes, st
 }
 
 //<summary>Calculates the complete stiffness matrix of the shell elements with threads based on the force based theory</summary>
-Matrix Solver::CompleteShellRestrictedStiffMatrixThreads(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Support> &listOfSupports, int nThreads, std::vector<std::vector<ShellElement>> &shellElemVecs) {
-	int DOF = 6;
-	int sizeRow = Support::TotalDOFsRestrained(listOfSupports);
-	int sizeCol = listOfNodes.size()*DOF;
+Matrix Solver::ShellRestrictedStiffMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
+	int sizeRow = Support::TotalDOFsRestrained(structManager->Supports());
+	int sizeCol = *setUp->StiffMatrixSize();
 	Matrix m(sizeRow, sizeCol);
 
-	if (listOfShells.size() != 0) {
+	if (structManager->ShellElements()->size() != 0) {
 		std::mutex matrixLock;
 		std::vector<std::thread> threadList;
-		for (int i = 0; i < (nThreads - 1); i++) {
-			threadList.emplace_back(ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads, std::ref(shellElemVecs[i]), std::ref(m), std::ref(listOfSupports), std::ref(matrixLock));
+		std::map<int, std::vector<ShellElement*>>::const_iterator it;
+
+		for (int i = 0; i < (setUp->AvailableThreads - 1); i++) {
+			it = setUp->GetShellThreads()->find(i + 1);
+			if (it != setUp->GetShellThreads()->end()) {
+				threadList.emplace_back(ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads, &it->second, std::ref(m), setUp->ReducedStiffMatrixSize(), std::ref(matrixLock));
+			}
 		}
-		ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(shellElemVecs.back(), m, listOfSupports, matrixLock);
+
+		it = setUp->GetShellThreads()->end();
+		ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(&it->second, m, setUp->ReducedStiffMatrixSize(), matrixLock);
 
 		for (int i = 0; i < threadList.size(); i++) {
 			threadList[i].join();
@@ -164,7 +155,7 @@ Matrix Solver::CompleteShellRestrictedStiffMatrixThreads(std::vector<Node> &list
 	return m;
 }
 
-void Solver::CompleteSpringStiffMatrixThreadsDispBasedAfterShells(std::vector<Spring3D> &listOfSprings, Matrix &m, std::vector<std::vector<double>> &listOfDisp, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, std::vector<std::vector<double>> &listOfPlasticDisp, std::vector<std::vector<std::string>> &listOfLoadStage, std::vector <std::vector<std::string>> &listOfStage, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp) {
+void Solver::SpringStiffMatrixAfterReducedShells(std::vector<Spring3D> &listOfSprings, Matrix &m, std::vector<std::vector<double>> &listOfDisp, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, std::vector<std::vector<double>> &listOfPlasticDisp, std::vector<std::vector<std::string>> &listOfLoadStage, std::vector <std::vector<std::string>> &listOfStage, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp) {
 	if (listOfSprings.size() != 0) {
 		Spring3D::AssembleSpringGlobalMatrixOnCompleteDispBased(listOfSprings, m, listOfDisp, listOfMinDisp, listOfMaxDisp, listOfPlasticDisp, listOfLoadStage, listOfStage, listOfUnlDisp, listOfRelDisp);
 	}

@@ -154,7 +154,11 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClInclude Include="AnalysisMethod.h" />
+    <ClInclude Include="CyclicAnalysis.h" />
     <ClInclude Include="Displacement.h" />
+    <ClInclude Include="DynamicAnalysis.h" />
+    <ClInclude Include="ElasticAnalysis.h" />
     <ClInclude Include="ElasticMaterial.h" />
     <ClInclude Include="Element.h" />
     <ClInclude Include="FileOperation.h" />
@@ -165,12 +169,14 @@
     <ClInclude Include="MaterialModel.h" />
     <ClInclude Include="Matrix.h" />
     <ClInclude Include="MatrixOperation.h" />
+    <ClInclude Include="MonotonicAnalysis.h" />
     <ClInclude Include="Node.h" />
     <ClInclude Include="OrthotropicElasticMaterial.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="PreAnalysisSetUp.h" />
     <ClInclude Include="Recorder.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="ReverseCyclic.h" />
     <ClInclude Include="SeismicLoad.h" />
     <ClInclude Include="ShellElement.h" />
     <ClInclude Include="Solver.h" />
@@ -185,8 +191,12 @@
     <ClInclude Include="VectorOperation.h" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="AnalysisMethod.cpp" />
     <ClCompile Include="ConsoleFEMTest.cpp" />
+    <ClCompile Include="CyclicAnalysis.cpp" />
     <ClCompile Include="Displacement.cpp" />
+    <ClCompile Include="DynamicAnalysis.cpp" />
+    <ClCompile Include="ElasticAnalysis.cpp" />
     <ClCompile Include="ElasticMaterial.cpp" />
     <ClCompile Include="Element.cpp" />
     <ClCompile Include="FileOperation.cpp" />
@@ -197,6 +207,7 @@
     <ClCompile Include="MaterialModel.cpp" />
     <ClCompile Include="Matrix.cpp" />
     <ClCompile Include="MatrixOperation.cpp" />
+    <ClCompile Include="MonotonicAnalysis.cpp" />
     <ClCompile Include="Node.cpp" />
     <ClCompile Include="OrthotropicElasticMaterial.cpp" />
     <ClCompile Include="pch.cpp">
@@ -207,6 +218,7 @@
     </ClCompile>
     <ClCompile Include="PreAnalysisSetUp.cpp" />
     <ClCompile Include="Recorder.cpp" />
+    <ClCompile Include="ReverseCyclic.cpp" />
     <ClCompile Include="SeismicLoad.cpp" />
     <ClCompile Include="ShellElement.cpp" />
     <ClCompile Include="Solver.cpp" />

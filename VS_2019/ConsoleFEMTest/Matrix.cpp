@@ -170,7 +170,7 @@ void Matrix::DestroyMatrixDouble(double** d, const int dimX) {
 }
 
 //<summary> Calculate the sum of two matrices</summary>
-Matrix Matrix::operator +(Matrix const &m2) {
+Matrix Matrix::operator +(Matrix const &m2) const {
 	double** addedMatrix = Matrix::CreateMatrixDouble(_dimX, _dimY);
 	for (int i = 0; i < _dimX; i++)
 	{
@@ -184,7 +184,7 @@ Matrix Matrix::operator +(Matrix const &m2) {
 }
 
 //<summary> Calculate the '+=' of two matrices </summary>
-void Matrix::operator +=(Matrix const &m2) {
+void Matrix::operator +=(Matrix const &m2) const {
 	for (int i = 0; i < _dimX; i++)
 	{
 		for (int j = 0; j < _dimY; j++)
@@ -195,7 +195,7 @@ void Matrix::operator +=(Matrix const &m2) {
 }
 
 //<summary> Calculate the subtraction of two matrices </summary>
-Matrix Matrix::operator -(Matrix const &m2) {
+Matrix Matrix::operator -(Matrix const &m2) const {
 	double** subMatrix = Matrix::CreateMatrixDouble(_dimX, _dimY);
 	for (int i = 0; i < _dimX; i++)
 	{
@@ -209,7 +209,7 @@ Matrix Matrix::operator -(Matrix const &m2) {
 }
 
 //<summary> Calculate the multiplication of two matrices </summary>
-Matrix Matrix::operator *(Matrix const &m2) {
+Matrix Matrix::operator *(Matrix const &m2) const {
 	double** multMatrix = Matrix::CreateMatrixDouble(_dimX, m2._dimY);
 
 	for (int i = 0; i < _dimX; i++)
@@ -228,7 +228,7 @@ Matrix Matrix::operator *(Matrix const &m2) {
 }
 
 //<summary> Calculate the multiplication of a matrix by a double </summary>
-Matrix Matrix::operator *(double const &d) {
+Matrix Matrix::operator *(double const &d) const {
 	double** multMatrix = Matrix::CreateMatrixDouble(_dimX, _dimY);
 	for (int i = 0; i < _dimX; i++)
 	{
@@ -242,7 +242,7 @@ Matrix Matrix::operator *(double const &d) {
 }
 
 //<summary> Calculate the multiplication of a matrix by an integer </summary>
-Matrix Matrix::operator *(int const &n) {
+Matrix Matrix::operator *(int const &n) const {
 	double** multMatrix = Matrix::CreateMatrixDouble(_dimX, _dimY);
 	for (int i = 0; i < _dimX; i++)
 	{

@@ -174,10 +174,8 @@ void Load::SortByNodeID(std::vector<Load> &load) {
 
 Matrix Load::AssembleLoadMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
 	// Assemble the total load matrix. The vector of loads MUST be already sorted when it is passed.
-	const int* DOF = setUp->DOF();
 	double** complete = Matrix::CreateMatrixDouble(*setUp->StiffMatrixSize(), 1);
 	
-
 	std::map<int, Load*>::const_iterator it = structManager->Loads()->begin();		
 	//for each Load instance
 	while (it != structManager->Loads()->end()) {
@@ -187,29 +185,33 @@ Matrix Load::AssembleLoadMatrix(const StructureManager* structManager, const Pre
 		for (int j = 0; j < it->second->GetLoadVector().size(); j++) {
 			int dir = it->second->GetLoadVector()[j][0];
 			double load = it->second->GetLoadVector()[j][1];
-			complete[(node - 1) * (*DOF) + (dir - 1)][0] = load;
+			complete[(node - 1) * (*setUp->DOF()) + (dir - 1)][0] = load;
 		}
 		it++;
 	}
 	return Matrix(complete, *setUp->StiffMatrixSize(), 1);
 }
 
-Matrix Load::AssembleLoadMatrixWithFlag(std::vector<Node> &vecNode, std::vector<Load> &vecLoad, std::string flag) {
+Matrix Load::AssembleLoadMatrixWithFlag(const StructureManager* structManager, const PreAnalysisSetUp* setUp, std::string flag) {
 	// Assemble the total load matrix. The vector of loads MUST be already sorted when it is passed.
-	int DOF = 6; //For Shell Elements
-	int size = vecNode.size() * DOF;
-	double** complete = Matrix::CreateMatrixDouble(size, 1);
-	for (int i = 0; i < vecLoad.size(); i++) { //for each Load instance
-		int node = vecLoad[i].GetNode(); //get node ID
-		for (int j = 0; j < vecLoad[i].GetLoadVector().size(); j++) { //for each load vector
-			int dir = vecLoad[i].GetLoadVector()[j][0];
-			double load = vecLoad[i].GetLoadVector()[j][1];
-			if (vecLoad[i].GetStatus() == flag) {
-				complete[(node - 1) * DOF + (dir - 1)][0] = load;
+	double** complete = Matrix::CreateMatrixDouble(*setUp->StiffMatrixSize(), 1);
+	
+	std::map<int, Load*>::const_iterator it = structManager->Loads()->begin();
+	//for each Load instance
+	while (it != structManager->Loads()->end()) {
+		if (it->second->GetStatus() == flag) { //if flag matches
+			int node = it->second->GetNode(); //get node ID
+
+			//for each load vector
+			for (int j = 0; j < it->second->GetLoadVector().size(); j++) {
+				int dir = it->second->GetLoadVector()[j][0];
+				double load = it->second->GetLoadVector()[j][1];
+				complete[(node - 1) * (*setUp->DOF()) + (dir - 1)][0] = load;
 			}
 		}
+		it++;
 	}
-	return Matrix(complete, size, 1);
+	return Matrix(complete, *setUp->StiffMatrixSize(), 1);
 }
 
 Matrix Load::AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Support> &vecSup) {
@@ -230,7 +232,7 @@ Matrix Load::AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Supp
 	return Matrix(complete, size, 1);
 }
 
-Matrix Load::GetReducedLoadMatrix(Matrix &loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF) {
+Matrix Load::GetReducedLoadMatrix(const Matrix &loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF) {
 	// Returns the load matrix minus the rows associated with support conditions.
 	// The vector of loads MUST be already sorted when it is passed.
 

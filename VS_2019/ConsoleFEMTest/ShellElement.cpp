@@ -89,11 +89,11 @@ const std::vector<std::vector<int>> ShellElement::GetGlobalDOFVector() const {
 }
 
 //<summary>Returns the global degree of freedom vector of the element</summary>
-std::vector<std::vector<int>> ShellElement::GetGlobalMassDOFVector() {
+const std::vector<std::vector<int>> ShellElement::GetGlobalMassDOFVector() const {
 	return _globalMassDOFList;
 }
 
-std::vector<std::vector<int>> ShellElement::GetGlobalRestDOFVector() {
+const std::vector<std::vector<int>> ShellElement::GetGlobalRestDOFVector() const{
 	return _globalRestDOFList;
 }
 
@@ -1113,8 +1113,6 @@ const Matrix ShellElement::GetGlobalStiffMatrix() const {
 //<sup>The list of supports in the structure</sup>
 //<mu>A way of protecting the different threads of acessing the same information at the same time</mu>
 void ShellElement::AssembleCompleteGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu) {
-	int DOF = 6; //# of degrees of freedom in each shell element
-
 	for (int k = 0; k < vecEle->size(); k++) { // for each element
 		const ShellElement* ele = (*vecEle)[k];
 		Matrix global = ele->GetGlobalStiffMatrix(); //45x45 matrix returns
@@ -1131,27 +1129,25 @@ void ShellElement::AssembleCompleteGlobalMatrixThreads(const std::vector<ShellEl
 	}
 }
 
-void ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::vector<Support> &sup, std::mutex& mu) {
-	int DOF = 6; //# of degrees of freedom in each shell element
-	int unrestrictDOF = complete.GetDimY() - Support::TotalDOFsRestrained(sup);
-	for (int k = 0; k < vecEle.size(); k++) { // for each element
-		ShellElement* ele = &vecEle[k];
-		std::vector<std::vector<int>> vec = ele->GetGlobalRestDOFVector();
-		if (vec.size() != 0) {
-			std::vector<std::vector<int>> vec2 = ele->GetGlobalDOFVector();
-			Matrix global = (ele->GetGlobalStiffMatrix()); //45x45 matrix returns
-			int runs = vec.size(); //number of DOFs not restrained
+void ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, const int* unrestrictDOFs, std::mutex& mu) {
+	for (int k = 0; k < vecEle->size(); k++) { // for each element
+		const ShellElement* ele = (*vecEle)[k];
+		std::vector<std::vector<int>> vecRest = ele->GetGlobalRestDOFVector();
+		if (vecRest.size() != 0) {
+			std::vector<std::vector<int>> vecGlobal = ele->GetGlobalDOFVector();
+			Matrix global = ele->GetGlobalStiffMatrix(); //45x45 matrix returns
+			int runs = vecRest.size(); //number of DOFs not restrained
 			for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix
-				int index1 = vec[i][0];
-				for (int j = 0; j < vec2.size(); j++) {
-					int index2 = vec2[j][0];
+				int index1 = vecRest[i][0];
+				for (int j = 0; j < vecGlobal.size(); j++) {
+					int index2 = vecGlobal[j][0];
 					std::lock_guard<std::mutex> lock(mu);
-					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec2[j][1]];
+					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vecRest[i][1]][vecGlobal[j][1]];
 				}
 				for (int j = 0; j < runs; j++) { //for all the columns
-					int index2 = vec[j][0] + unrestrictDOF;
+					int index2 = vecRest[j][0] + *unrestrictDOFs;
 					std::lock_guard<std::mutex> lock(mu);
-					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec[j][1]];
+					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vecRest[i][1]][vecRest[j][1]];
 				}
 			}
 		}

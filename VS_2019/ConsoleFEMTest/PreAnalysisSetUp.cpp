@@ -1,4 +1,5 @@
 #include "pch.h"
+#include "AnalysisMethod.h"
 #include "PreAnalysisSetUp.h"
 
 PreAnalysisSetUp::PreAnalysisSetUp()
@@ -9,9 +10,12 @@ PreAnalysisSetUp::~PreAnalysisSetUp()
 {
 }
 
-PreAnalysisSetUp::PreAnalysisSetUp(const StructureManager* structManager)
+PreAnalysisSetUp::PreAnalysisSetUp(const StructureManager* structManager, const AnalysisMethod* analysisMethod, int nLoadSteps, int nIterations)
 {
 	_structDetails = structManager;
+	_analysisMethod = analysisMethod;
+	_nLoadSteps = nLoadSteps;
+	_nIterations = nIterations;
 }
 
 std::vector<int> PreAnalysisSetUp::IdentifyIncrementalLoads()
@@ -75,6 +79,46 @@ const int* PreAnalysisSetUp::AvailableThreads() const
 	return &_nThreads;
 }
 
+const std::vector<double>* PreAnalysisSetUp::LoadFactors() const
+{
+	return &_loadFactors;
+}
+
+const Matrix* PreAnalysisSetUp::ConstForces() const
+{
+	return &_constForces;
+}
+
+const Matrix* PreAnalysisSetUp::IncForces() const
+{
+	return &_incrForces;
+}
+
+const int* PreAnalysisSetUp::LoadSteps() const
+{
+	switch (_analysisMethod->Type())
+	{
+	case AnalysisTypes::Elastic:
+		return &_nLoadSteps;
+		break;
+	case AnalysisTypes::Monotonic:
+		return &_nLoadSteps;
+		break;
+	case AnalysisTypes::Cyclic:
+		return &_nLoadSteps;
+		break;
+	case AnalysisTypes::Reverse_Cyclic:
+		break;
+	case AnalysisTypes::Seismic:
+		break;
+	case AnalysisTypes::Impulse:
+		break;
+	default:
+		return nullptr;
+		break;
+	}
+}
+
 //<summary>Sets up the list of elements that each thread will be responsible for</summary>
 void PreAnalysisSetUp::SetUpThreadsForShells(const std::map<int, ShellElement*>* listOfShells) {
 	int nThreads = std::thread::hardware_concurrency();
@@ -108,4 +152,27 @@ void PreAnalysisSetUp::SetUpThreadsForShells(const std::map<int, ShellElement*>*
 void PreAnalysisSetUp::CalculateReducedStiffMatrixSize()
 {
 	_redStiffMatrixSize = _structDetails->Nodes()->size() * _DOF - Support::TotalDOFsRestrained(_structDetails->Supports());
+}
+
+void PreAnalysisSetUp::CalculateForceMatrices()
+{
+	_constForces = Load::AssembleLoadMatrixWithFlag(_structDetails, this, "constant");
+	_incrForces = Load::AssembleLoadMatrixWithFlag(_structDetails, this, "increment");
+}
+
+void PreAnalysisSetUp::CalculateLoadFactors()
+{
+	switch (_analysisMethod)
+	{
+	case AnalysisMethod::Elastic:
+	{
+		_loadFactors.reserve(_nLoadSteps);
+		for (int i = 0; i < _nLoadSteps; i++) {
+			_loadFactors.push_back((i + 1) * (1.0 / _nLoadSteps));
+		}
+		break;
+	}
+	default:
+		break;
+	}
 }

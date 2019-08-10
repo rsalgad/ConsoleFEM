@@ -30,8 +30,8 @@ public:
 	void CalculateGlobalDOFVector(std::vector<Support*> supList);
 	void CalculateGlobalMassDOFVector(std::vector<Mass*> massList, std::vector<Support*> supList);
 	const std::vector<std::vector<int>> GetGlobalDOFVector() const;
-	std::vector<std::vector<int>> GetGlobalMassDOFVector();
-	std::vector<std::vector<int>> GetGlobalRestDOFVector();
+	const std::vector<std::vector<int>> GetGlobalMassDOFVector() const;
+	const std::vector<std::vector<int>> GetGlobalRestDOFVector() const;
 	Matrix GetJacobian(double &e, double &n, double &c) const;
 	const Matrix GetBMatrix(char type, double &e, double &n, double &c, const Matrix &Jacobian) const;
 	const Matrix GetTotalBMatrix(double &e, double &n, double &c, const Matrix &Jacobian) const;
@@ -61,7 +61,7 @@ public:
 	//static Matrix AssembleCompleteGlobalMatrix(std::vector<Node> &vecNode, std::vector<ShellElement> &vecEle);
 	//static void AssembleCompleteGlobalMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::mutex& mu);
 	static void AssembleCompleteGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu);
-	static void AssembleCompleteRestrictedGlobalMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::vector<Support> &sup, std::mutex& mu);
+	static void AssembleCompleteRestrictedGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, const int* unrestrictDOFs, std::mutex& mu);
 	static void GetNinthNodeDisplacement(Matrix &totalDisplacementMatrix, std::vector<ShellElement> &listElements);
 	static Matrix CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec);
 	static Matrix GetMassMatrixNonZeroMassOnly(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec);

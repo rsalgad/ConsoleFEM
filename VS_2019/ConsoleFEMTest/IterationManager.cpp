@@ -12,6 +12,8 @@
 #include "TimeIntegrationMethod.h"
 #include "Recorder.h"
 #include "PreAnalysisSetUp.h"
+#include "AnalysisMethod.h"
+#include "ElasticAnalysis.h"
 #include <iostream>
 #include <fstream>
 
@@ -21,25 +23,18 @@ IterationManager::IterationManager()
 }
 
 //For elastic analysis only (with loadsteps, if wanted) working
-void IterationManager::PerformAnalysisWithIterations(const StructureManager* structManager, const PreAnalysisSetUp* setUp, int nLoadSteps, std::string &fileName) {
-
+void IterationManager::PerformElasticAnalysis(const StructureManager* structManager, const PreAnalysisSetUp* setUp, int nLoadSteps, std::string &fileName) {
 	Recorder<Node*>* dispRecorder = new Recorder<Node*>();
-	
-	double div = (1.0 / nLoadSteps);
 
 	//Perform the initial iteration (will occur even when no iterations are specified)
 	//The analysis is always performed on the original, undeformed, configuration of the structure, but with increasing load.
 	Matrix mRed = Solver::ReducedStiffnessMatrix(structManager, setUp);
-	Matrix F = Load::AssembleLoadMatrix(structManager, setUp);
 
 	//start to perform the load steps
-	for (int step = 0; step < nLoadSteps; step++) {
-		Matrix Fmult = F * div * (step + 1);
+	for (int step = 0; step < *setUp->LoadSteps(); step++) {
+		Matrix Fmult = *setUp->ConstForces() * (*setUp->LoadFactors())[step];
 		Matrix F_iter = Load::GetReducedLoadMatrix(Fmult, structManager->Supports(), setUp->DOF());
-		Matrix Cholesky = MatrixOperation::CholeskyDecomposition(mRed);
-		Matrix CholeskyTransp = MatrixOperation::Transpose(Cholesky);
-		Matrix interMatrix = MatrixOperation::ForwardSubstitution(Cholesky, F_iter);
-		Matrix d_iter = MatrixOperation::BackSubstitution(CholeskyTransp, interMatrix);
+		Matrix d_iter = MatrixOperation::FullCholesky(mRed, F_iter);
 		Matrix completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, structManager, setUp);
 
 		//this is just a recorder. It is not being used for the rest of the analysis
@@ -50,38 +45,37 @@ void IterationManager::PerformAnalysisWithIterations(const StructureManager* str
 }
 
 //Displacement-load method.
-void IterationManager::PerformAnalysisWithIterationsMatNonlinearDispBased(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, 
-																		  std::vector<Load> &listOfLoads, std::vector<Support> &listOfSups, int nIter, int nLoadSteps, std::string type,
-																		  double cyclicRepeat, int stepsPerPeak, double peakInc, int cyclesPerPeak, double iniPeak, std::string &fileName) {
+void IterationManager::PerformMatNonlinearAnalysis(const StructureManager* structManager, const PreAnalysisSetUp* setUp, std::string &fileName) {
 	
 	// <Start of setting up of variables useful during the analysis>
-	std::vector<Node> originalList = listOfNodes; //Gets a copy of the list of nodes in their original positions in case they get changed during the analysis
-	int DOF = 6; //number of DOFs considered
-	std::vector<std::vector<Node>> nodesPerStep; //stores the new nodal coordinates after each complete iteration
-	std::vector<Matrix> forcePerStep; //stores the forces on each node at each completed loadstep
-	int totalSteps = Load::DefineTotalLoadSteps(type, nLoadSteps, cyclicRepeat, 0, 0);
-	nodesPerStep.reserve(totalSteps); //reserve the amount of memory that I know it will consume
-	bool breakAnalysis = false; //indicates if the analysis should be stopped
-	Matrix unorganizedDisplacement(listOfNodes.size()*DOF, 1); //The matrix composed of the displacements of the free nodes on top of the displacements of the resitricted nodes, regardless of their DOFs
+	Recorder<Node*>* dispRecorder = new Recorder<Node*>(); //stores the new nodal coordinates after each complete iteration
+	Recorder<Load*>* forceRecorder = new Recorder<Load*>(); //stores the forces on each node after each complete iteration
+	
+	Matrix unorganizedDisplacement(listOfNodes.size()*DOF, 1); //The matrix composed of the displacements of the free nodes on top of the displacements of the restricted nodes, regardless of their DOFs
 	Matrix forceMatrix(listOfNodes.size()*DOF - Support::TotalDOFsRestrained(listOfSups), 1); //The matrix to store the resulting forces at the end of each loadstep
 
 	// <Start of several list of spring data used to enable the localization of each srping in its cyclic material model
 	std::vector<std::vector<double>> oldListOfDisps; //Used to update the forces on the springs inside a substep
 	std::vector<std::vector<double>> newListOfDisps; //Used to update the forces on the springs inside a substep
+	
 	std::vector<std::vector<double>> listOfMinDisps; //Used to update the forces on the springs inside a substep
 	std::vector<std::vector<double>> listOfMaxDisps; //Used to update the forces on the springs inside a substep
 	std::vector<std::vector<double>> oldListOfMinDisps; //Used to update the forces on the springs inside a substep
 	std::vector<std::vector<double>> oldListOfMaxDisps; //Used to update the forces on the springs inside a substep
+	
 	std::vector<std::vector<double>> newListOfPlasticDisps; //Used to update the stiffness of the springs
 	std::vector<std::vector<double>> oldListOfPlasticDisps; //Used to update the stiffness of the springs
+	
 	std::vector<std::vector<double>> oldListOfUnlDisp; //Use to check when to conenct between unload and reload branchs
 	std::vector<std::vector<double>> oldListOfRelDisp;
 	std::vector<std::vector<double>> listOfUnlDisp; //Use to check when to conenct between unload and reload branchs
 	std::vector<std::vector<double>> listOfRelDisp;
+
 	std::vector<std::vector<double>> maxDispPerIter;
 	std::vector<std::vector<double>> minDispPerIter;
 	std::vector<std::vector<double>> unlDispPerIter;
 	std::vector<std::vector<double>> relDispPerIter;
+
 	std::vector<std::vector<std::string>> oldSpringStages;
 	std::vector<std::vector<std::string>> newSpringStages;
 	std::vector<std::vector<std::string>> listOfSpringLoadingStages;
@@ -91,24 +85,20 @@ void IterationManager::PerformAnalysisWithIterationsMatNonlinearDispBased(std::v
 	// <End of setting up of variables useful during the analysis>
 
 	//<Start of calculations that are not required to be performed every loadstep>
-	Matrix Fconst = Load::AssembleLoadMatrixWithFlag(listOfNodes, listOfLoads, "constant"); //assembles the matrix of constant forces
-	Matrix Finc = Load::AssembleLoadMatrixWithFlag(listOfNodes, listOfLoads, "increment"); //assembles the matrix of incremental forces
-	std::vector<int> indexes = Load::IdentifyIncrementalLoads(listOfLoads); //Identify which DOFs are incremental loads
-	Matrix FConstRed = Load::GetReducedLoadMatrix(Fconst, listOfSups); //reduced version of the matrix of constant forces
-	Matrix FIncRed = Load::GetReducedLoadMatrix(Finc, listOfSups); //reduced version of the matrix of incremental forces
+	Matrix FConstRed = Load::GetReducedLoadMatrix(*setUp->ConstForces(), structManager->Supports(), setUp->DOF()); //reduced version of the matrix of constant forces
+	Matrix FIncRed = Load::GetReducedLoadMatrix(*setUp->IncForces(), structManager->Supports(), setUp->DOF()); //reduced version of the matrix of incremental forces
 	
-	std::vector<std::vector<ShellElement>> shellElemVecs = Solver::SetUpThreadsForShells(listOfShells, std::thread::hardware_concurrency()); //separates the total shell elements amongst the available threads
-	Matrix shellStiff = Solver::CompleteShellStiffMatrixThreads(listOfNodes, listOfShells, listOfSups, std::thread::hardware_concurrency(), shellElemVecs); //calcualtes the reduced stiffness amtrix only accounting for the shell elements
-	Matrix shellRestricStiff = Solver::CompleteShellRestrictedStiffMatrixThreads(listOfNodes, listOfShells, listOfSups, std::thread::hardware_concurrency(), shellElemVecs); //calculates the stiffness matrix of the restricted DOFs accounting only for the shell elements
+	Matrix shellStiff = Solver::ReducedShellStiffMatrix(structManager, setUp); //calcualtes the reduced stiffness amtrix only accounting for the shell elements
+	Matrix shellRestricStiff = Solver::ShellRestrictedStiffMatrix(structManager, setUp); //calculates the stiffness matrix of the restricted DOFs accounting only for the shell elements
 
 	//Perform the load steps
-	for (int step = 0; step < totalSteps; step++) {
+	for (int step = 0; step < *setUp->LoadSteps(); step++) {
 		std::cout << "" << std::endl;
 		std::cout << "Loadstep " << step + 1 << std::endl;
 		std::cout << "Iteration " << 1 << std::endl;
 
 		//<Start of matrix stiffness solving>
-		Matrix m(shellStiff.GetDimX(), shellStiff.GetDimY()); //Initializes the 'total' reduced matrix
+		Matrix m(shellStiff.GetDimX(), shellStiff.GetDimY()); //Initializes the total (i.e., shell + spring) reduced matrix
 		Solver::CompleteSpringStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter); //this will update 'm' with the values of the spring elements
 		Matrix mRed = m + shellStiff; //complete reduced total stiffness matrix
 		double highStiff = MatrixOperation::GetBiggestDiagTerm(mRed);
@@ -244,7 +234,7 @@ void IterationManager::PerformAnalysisWithIterationsMatNonlinearDispBased(std::v
 		nodesPerStep.emplace_back(newNodes);
 	}
 
-	FileOperation::SaveIterationsResult("LoadStep", nodesPerStep, originalList);
+	FileOperation::SaveIterationsResult("LoadStep", dispRecorder, structManager->Nodes());
 	FileOperation::SaveIterationsForceResult("ForceStep", forcePerStep);
 }
 

@@ -12,12 +12,12 @@ public:
 	Matrix(double** matrix, const int dim);
 	Matrix(const const Matrix &obj);
 	std::string ToString() const;
-	Matrix operator +(Matrix const &m2);
-	void operator +=(Matrix const &m2);
-	Matrix operator -(Matrix const &m2);
-	Matrix operator *(Matrix const &m2);
-	Matrix operator *(double const &d);
-	Matrix operator *(int const &n);
+	Matrix operator +(Matrix const &m2) const;
+	void operator +=(Matrix const &m2) const;
+	Matrix operator -(Matrix const &m2) const;
+	Matrix operator *(Matrix const &m2) const;
+	Matrix operator *(double const &d) const;
+	Matrix operator *(int const &n) const;
 	void operator =(Matrix const &m2);
 	double** GetMatrixDouble() const; //could make this const (read-only) and create another function like "ModifyMatrixDouble" that can actually change the values of double**
 	void SetMatrixDouble(double** matrix);

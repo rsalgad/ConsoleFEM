@@ -8,6 +8,7 @@
 #include "MatrixOperation.h"
 #include "StructureManager.h"
 #include "PreAnalysisSetUp.h"
+#include "AnalysisSpringRecorder.h"
 #include <iostream>
 #include <mutex>
 #include <thread>
@@ -67,18 +68,16 @@ Matrix Solver::CompleteStiffnessMatrixWithThreads(std::vector<Node> &listOfNodes
 
 //<summary>Calculates the complete stiffness matrix with threads based on the displacement based theory</summary>
 
-Matrix Solver::ReducedStiffnessMatrix(const StructureManager* structManager,const PreAnalysisSetUp* setUp)
+Matrix Solver::ReducedStiffnessMatrix(const Matrix* shellStiff, const StructureManager* structManager,const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecorder, double* highStiff)
 {	
-	Matrix m = ReducedShellStiffMatrix(structManager, setUp);
+	Matrix springStiff = ReducedSpringStiffMatrix(setUp->ReducedStiffMatrixSize(), structManager->SpringElements(), springRecorder);
+	Matrix redStiff = *shellStiff + springStiff;
 
-
-	//Why is this commented out? The springs are not included in the Stiffness Matrix?
-	/*
-	if (listOfSprings.size() != 0) {
-		Spring3D::AssembleSpringGlobalMatrixOnCompleteDispBased(listOfSprings, m);
+	if (setUp->DispLoadDOFs != 0) { //if there are displacement loads
+		DisplacementLoadStiffness(redStiff, setUp->DispLoadDOFs, highStiff); //adds the big stiffness term to account for displacement loads, if any
 	}
-	*/
-	return m;
+
+	return *shellStiff + springStiff;
 }
 
 //<summary>Calculates the complete stiffness matrix of the shell elements with threads based on the force based theory</summary>
@@ -155,41 +154,73 @@ Matrix Solver::ShellRestrictedStiffMatrix(const StructureManager* structManager,
 	return m;
 }
 
-void Solver::SpringStiffMatrixAfterReducedShells(std::vector<Spring3D> &listOfSprings, Matrix &m, std::vector<std::vector<double>> &listOfDisp, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, std::vector<std::vector<double>> &listOfPlasticDisp, std::vector<std::vector<std::string>> &listOfLoadStage, std::vector <std::vector<std::string>> &listOfStage, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp) {
-	if (listOfSprings.size() != 0) {
-		Spring3D::AssembleSpringGlobalMatrixOnCompleteDispBased(listOfSprings, m, listOfDisp, listOfMinDisp, listOfMaxDisp, listOfPlasticDisp, listOfLoadStage, listOfStage, listOfUnlDisp, listOfRelDisp);
+Matrix Solver::ReducedSpringStiffMatrix(const int* redSize, const std::map<int, Spring3D*>* listOfSprings, const AnalysisSpringRecorder* springRecorder) {
+	if (listOfSprings->size() != 0) {
+		Matrix m = Spring3D::AssembleSpringGlobalMatrixOnReducedSizedMatrix(redSize, listOfSprings, springRecorder);
+		return m;
+	}
+	else {
+		std::cout << "Error calculating Spring Stiffness Matrices" << std::endl;
+		return Matrix(0);
 	}
 }
 
-void Solver::CompleteSpringRestrictedStiffMatrixThreadsDispBasedAfterShells(std::vector<Spring3D> &listOfSprings, Matrix &m, std::vector<Support> &sup, std::vector<std::vector<double>> &listOfDisp, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, std::vector<std::vector<double>> &listOfPlasticDisp, std::vector<std::vector<std::string>> &listOfLoadStage, std::vector <std::vector<std::string>> &listOfStage, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp) {
-	if (listOfSprings.size() != 0) {
-		Spring3D::AssembleSpringGlobalRestrictedMatrixOnCompleteDispBased(listOfSprings, m, sup, listOfDisp, listOfMinDisp, listOfMaxDisp, listOfPlasticDisp, listOfLoadStage, listOfStage, listOfUnlDisp, listOfRelDisp);
-	}
+Matrix Solver::ReducedRestrictStiffnessMatrix(const Matrix* shellStiff, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecorder)
+{
+	Matrix springStiff = ReducedSpringRestrictedStiffMatrix(setUp->ReducedStiffMatrixSize(), structManager->SpringElements(), springRecorder);
+	Matrix restStiff = *shellStiff + springStiff;
+
+
+
 }
 
-void Solver::DisplacementLoadStiffness(Matrix& stiff, std::vector<Support> &listOfSup, double &biggest) {
-	double highStiff = biggest * pow(10, 6);
-	std::vector<int> indexes = Support::GetDisplacementLoadIndexes(listOfSup); //the DOF indexes of the supports with displacement loads
+Matrix Solver::ReducedSpringRestrictedStiffMatrix(const int* redSize, const std::map<int, Spring3D*>* listOfSprings, const AnalysisSpringRecorder* springRecorder) {
 	
-	for (int i = 0; i < indexes.size(); i++) {
-		stiff.GetMatrixDouble()[indexes[i]][indexes[i]] += highStiff;
+	if (listOfSprings->size() != 0) {
+		Matrix m = Spring3D::AssembleSpringGlobalRestrictedMatrixOnComplete(redSize, listOfSprings, springRecorder);
+		return m;
+	}
+	else {
+		std::cout << "Error calculating Spring Stiffness Matrices" << std::endl;
+		return Matrix(0);
 	}
 }
 
-void Solver::DisplacementLoadForce(Matrix& force, std::vector<Support> &listOfSup, std::vector<std::vector<double>> &listOfPlasticDisp, std::vector<Spring3D> &listOfSpring, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, double &biggest, double loadFraction, std::vector<std::vector<double>> &listOfDisp, std::vector<std::vector<std::string>> &listOfLoadStage, std::vector <std::vector<std::string>> &listOfStage, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp) {
-	double highStiff = biggest * pow(10, 6);
-	std::vector<int> indexes = Support::GetDisplacementLoadIndexes(listOfSup);
+void Solver::DisplacementLoadStiffness(Matrix& stiff, const std::vector<int>* dispDOFs, double* highStiff) {
+	*highStiff = MatrixOperation::GetBiggestDiagTerm(stiff) * pow(10, 6);
 	
+	for (int i = 0; i < dispDOFs->size(); i++) {
+		stiff.GetMatrixDouble()[(*dispDOFs)[i]][(*dispDOFs)[i]] += *highStiff;
+	}
+}
+
+Matrix Solver::ReducedForceMatrix(const Matrix* FConst, const Matrix* FIncr, const std::map<int, Support*>* listOfSups, const PreAnalysisSetUp* setUp, const int* step, const double* highStiff,  const AnalysisSpringRecorder* springRecord) {
+	Matrix F = (*FConst) + (*FIncr) * (*setUp->LoadFactors())[*step]; //adds the constant and incremental terms of the applied laods, considering the current loadstep
+	
+	if (setUp->DispLoadDOFs != 0) { //if there are displacement loads
+		DisplacementLoadForce(&F, listOfSups, setUp, springRecord, &(*setUp->LoadFactors())[*step], highStiff); //adds the big stiffness term to account for displacement loads, if any
+	}
+	return F;
+}
+
+void Solver::DisplacementLoadForce(const Matrix* force, const std::map<int, Support*>* listOfSup, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecord, const double* loadFraction, const double* highStiff) {
 	int count = 0;
 
-	for (int i = 0; i < listOfSup.size(); i++) {
-		for (int j = 0; j < listOfSup[i].GetSupportVector().size(); j++) {
-			if (listOfSup[i].GetSupportVector()[j][1] != 0){ //no need to do this if the support is just a boundary condition
-				double dispLoad = listOfSup[i].GetSupportVector()[j][1];
-				force.GetMatrixDouble()[indexes[count]][0] += highStiff * dispLoad * loadFraction;
+	std::map<int, Support*>::const_iterator it = listOfSup->begin();
+
+	while (it != listOfSup->end()) {
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) {
+			if (it->second->GetSupportVector()[j][1] != 0) { //no need to do this if the support is just a boundary condition
+				double dispLoad = it->second->GetSupportVector()[j][1];
+				force->GetMatrixDouble()[(*setUp->DispLoadDOFs())[count]][0] += (*highStiff) * dispLoad * (*loadFraction);
 				count++;
 			}
 		}
+		it++;
+	}
+
+	for (int i = 0; i < listOfSup->size(); i++) {
+		
 	}
 
 	std::vector<int> plasticIndexes = Spring3D::GetPlasticDispIndexes(listOfPlasticDisp, listOfSpring, listOfSup);

@@ -119,6 +119,16 @@ const int* PreAnalysisSetUp::LoadSteps() const
 	}
 }
 
+const int* PreAnalysisSetUp::Iterations() const
+{
+	return &_nIterations;
+}
+
+const std::vector<int>* PreAnalysisSetUp::DispLoadDOFs() const
+{
+	return &_dispLoadDOFs;
+}
+
 //<summary>Sets up the list of elements that each thread will be responsible for</summary>
 void PreAnalysisSetUp::SetUpThreadsForShells(const std::map<int, ShellElement*>* listOfShells) {
 	int nThreads = std::thread::hardware_concurrency();
@@ -162,17 +172,65 @@ void PreAnalysisSetUp::CalculateForceMatrices()
 
 void PreAnalysisSetUp::CalculateLoadFactors()
 {
-	switch (_analysisMethod)
+	switch (_analysisMethod->Type())
 	{
-	case AnalysisMethod::Elastic:
+	case AnalysisTypes::Cyclic: 
 	{
+		for (int step = 0; step < _nLoadSteps; step++) {
+			int stepsPerCycle = stepsPerPeak * 2;//return the total number of steps inside each full cycle
+			int cycle = step / stepsPerCycle; //return the number of cycles already covered
+			int aux = step + 1 - cycle * stepsPerCycle; //returns the loadstep inside the current cycle
+			int aux2 = aux / stepsPerPeak; // returns the number of peaks of the current cycle it already covered
+
+			double currentPeak = iniPeak + (cycle / cyclesPerPeak) * peakInc;
+			double increment = currentPeak / stepsPerPeak;
+
+			if (aux2 == 0) {
+				_loadFactors.push_back((aux)* increment);
+			}
+			else {
+				_loadFactors.push_back(currentPeak - (aux - stepsPerPeak) * increment);
+			}
+		}
+	}
+	case AnalysisTypes::Reverse_Cyclic:
+	{
+		for (int step = 0; step < _nLoadSteps; step++) {
+			int stepsPerCycle = stepsPerPeak * 4;//return the total number of steps inside each full cycle
+			int cycle = step / stepsPerCycle; //return the number of cycles already covered
+			int aux = step + 1 - cycle * stepsPerCycle; //returns the loadstep inside the current cycle
+			int aux2 = aux / stepsPerPeak; // returns the number of peaks of the current cycle it already covered
+
+			double currentPeak = iniPeak + (cycle / cyclesPerPeak) * peakInc;
+			double increment = currentPeak / stepsPerPeak;
+
+			if (aux2 == 0) {
+				_loadFactors.push_back(aux * increment)s;
+			}
+			else if (aux2 == 1) {
+				_loadFactors.push_back(currentPeak - (aux - stepsPerPeak) * increment);
+			}
+			else if (aux2 == 2) {
+				_loadFactors.push_back(-(aux - aux2 * stepsPerPeak) * increment);
+			}
+			else if (aux2 == 3) {
+				_loadFactors.push_back(-currentPeak + (aux - aux2 * stepsPerPeak) * increment);
+			}
+			else {
+				_loadFactors.push_back(0);
+			}
+		}
+	}
+	default:
 		_loadFactors.reserve(_nLoadSteps);
-		for (int i = 0; i < _nLoadSteps; i++) {
-			_loadFactors.push_back((i + 1) * (1.0 / _nLoadSteps));
+		for (int step = 0; step < _nLoadSteps; step++) {
+			_loadFactors.push_back((step + 1) * (1.0 / _nLoadSteps));
 		}
 		break;
 	}
-	default:
-		break;
-	}
+}
+
+void PreAnalysisSetUp::CalculateDispLoadDOFs()
+{
+	_dispLoadDOFs = Support::GetDisplacementLoadIndexes(&_DOF, _structDetails->Supports());
 }

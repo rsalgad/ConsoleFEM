@@ -6,6 +6,7 @@
 #include "Displacement.h"
 #include "VectorOperation.h"
 #include "MatrixOperation.h"
+#include "AnalysisSpringRecorder.h"
 #include <vector>
 #include <iostream>
 #include <mutex>
@@ -256,10 +257,17 @@ Matrix Spring3D::GetTransformationMatrix() {
 }
 
 //<summary>Calculates the global stiffness matrix based on the displacement based</summary>
-Matrix Spring3D::GetGlobalStiffMatrixDispBased(std::vector<double> &listOfPos, std::vector<double> &listOfMinDisp, std::vector<double> &listOfMaxDisp, std::vector<double> &listOfPlasticDisp, std::vector<std::string> &listOfLoadStage, std::vector<std::string> &listOfStage, std::vector<double> &listOfUnlDisp, std::vector<double> &listOfRelDisp) {
+Matrix Spring3D::GetGlobalStiffMatrixDispBased(const AnalysisSpringRecorder* springRecorder) {
 	Matrix transf = GetTransformationMatrix();
 	Matrix transTransp = MatrixOperation::Transpose(transf);
-	Matrix localStiff = GetLocalStifnessMatrixDispBased(listOfPos, listOfMinDisp, listOfMaxDisp, listOfPlasticDisp, listOfLoadStage, listOfStage, listOfUnlDisp, listOfRelDisp);
+	Matrix localStiff = GetLocalStifnessMatrixDispBased(springRecorder->GetDisplacementMap().find("disp")->second.find("new")->second.find(_ID)->second,
+		springRecorder->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(_ID)->second, 
+		springRecorder->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(_ID)->second,
+		springRecorder->GetDisplacementMap().find("plasticDisp")->second.find("new")->second.find(_ID)->second,
+		springRecorder->GetStagesMap.find("list")->second.find(_ID)->second, 
+		springRecorder->GetStagesMap.find("new")->second.find(_ID)->second, 
+		springRecorder->GetDisplacementMap().find("unlDisp")->second.find("new")->second.find(_ID)->second,
+		springRecorder->GetDisplacementMap().find("relDisp")->second.find("new")->second.find(_ID)->second);
 
 	Matrix mult2 = transTransp * localStiff * transf;
 
@@ -287,50 +295,56 @@ void Spring3D::AssembleSpringGlobalMatrixOnComplete(std::vector<Spring3D> &vecEl
 
 //<summary>Assembles the members of the global stiffness matrix of a collection of Spring3D elements on the total stiffness matrix.</summary>
 //<comment>Uses the displacement based method</comment>
-void Spring3D::AssembleSpringGlobalMatrixOnCompleteDispBased(std::vector<Spring3D> &vecEle, Matrix& complete, std::vector<std::vector<double>> &listOfDisp, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, std::vector<std::vector<double>> &listOfPlasticDisp, std::vector<std::vector<std::string>> &listOfLoadStage, std::vector <std::vector<std::string>> &listOfStage, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp) {
-	int DOF = 3; //# of degrees of freedom in each spring element
-	for (int k = 0; k < vecEle.size(); k++) { // for each element
-		Spring3D* ele = &vecEle[k];
-		Matrix global = ele->GetGlobalStiffMatrixDispBased(listOfDisp[k], listOfMinDisp[k], listOfMaxDisp[k], listOfPlasticDisp[k], listOfLoadStage[k], listOfStage[k], listOfUnlDisp[k], listOfRelDisp[k]); //6x6 matrix returns
-		//std::cout << "Spring " << k + 1 << std::endl;
-		//std::cout << global->ToString() << std::endl;
+Matrix Spring3D::AssembleSpringGlobalMatrixOnReducedSizedMatrix(const int* redSize, const std::map<int, Spring3D*>* vecEle, const AnalysisSpringRecorder* springRecorder) {
+	Matrix m(*redSize, *redSize);
+
+	std::map<int, Spring3D*>::const_iterator it = vecEle->begin();
+
+	while (it != vecEle->end()) { //for each spring element
+		Spring3D* ele = it->second;
+		Matrix global = ele->GetGlobalStiffMatrixDispBased(springRecorder); //6x6 matrix returns
 		std::vector<std::vector<int>> vec = ele->GetGlobalDOFVector();
-		int runs = vec.size(); //this will be 6 in this case
-		for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix
+		for (int i = 0; i < vec.size(); i++) { //for all the lines in the local stiffness matrix
 			int index1 = vec[i][0];
-			for (int j = 0; j < runs; j++) { //for all the columns
+			for (int j = 0; j < vec.size(); j++) { //for all the columns
 				int index2 = vec[j][0];
-				complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec[j][1]];
+				m.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec[j][1]];
 			}
 		}
+		it++;
 	}
+	return m;
 }
 
 //<summary>Assembles the members of the global stiffness matrix of a collection of Spring3D elements on the total stiffness matrix.</summary>
 //<comment>Uses the displacement based method</comment>
-void Spring3D::AssembleSpringGlobalRestrictedMatrixOnCompleteDispBased(std::vector<Spring3D> &vecEle, Matrix& complete, std::vector<Support> &sup, std::vector<std::vector<double>> &listOfDisp, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, std::vector<std::vector<double>> &listOfPlasticDisp, std::vector<std::vector<std::string>> &listOfLoadStage, std::vector <std::vector<std::string>> &listOfStage, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp) {
-	int DOF = 3; //# of degrees of freedom in each spring element
-	int unrestrictDOF = complete.GetDimY() - Support::TotalDOFsRestrained(sup);
-	for (int k = 0; k < vecEle.size(); k++) { // for each element
-		Spring3D* ele = &vecEle[k];
+Matrix Spring3D::AssembleSpringGlobalRestrictedMatrixOnComplete(const int* redSize, const std::map<int, Spring3D*>* vecEle, const AnalysisSpringRecorder* springRecorder) {
+	Matrix m(*redSize, *redSize);
+	
+	std::map<int, Spring3D*>::const_iterator it = vecEle->begin();
+
+	while (it != vecEle->end()) { //for each spring element
+		Spring3D* ele = it->second;
 		std::vector<std::vector<int>> vec = ele->GetGlobalRestDOFVector();
 		if (vec.size() != 0) { //only calculate if there is some restricted DOF in this element
 			std::vector<std::vector<int>> vec2 = ele->GetGlobalDOFVector();
-			Matrix global = ele->GetGlobalStiffMatrixDispBased(listOfDisp[k], listOfMinDisp[k], listOfMaxDisp[k], listOfPlasticDisp[k], listOfLoadStage[k], listOfStage[k], listOfUnlDisp[k], listOfRelDisp[k]); //6x6 matrix returns
+			Matrix global = ele->GetGlobalStiffMatrixDispBased(springRecorder); //6x6 matrix returns
 			int runs = vec.size(); //this will be 6 in this case
 			for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix
 				int index1 = vec[i][0];
 				for (int j = 0; j < vec2.size(); j++) {
 					int index2 = vec2[j][0];
-					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec2[j][1]];
+					m.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec2[j][1]];
 				}
 				for (int j = 0; j < runs; j++) { //for all the columns
-					int index2 = vec[j][0] + unrestrictDOF;
-					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec[j][1]];
+					int index2 = vec[j][0] + *redSize;
+					m.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec[j][1]];
 				}
 			}
 		}
+		it++;
 	}
+	return m;
 }
 
 //<summary>Checks the material nonlinearity of Spring3D elements to decide if convergence has been achieved</summary>

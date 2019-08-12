@@ -1,29 +1,29 @@
 #include "pch.h"
-#include "Recorder.h"
+#include "NodalRecorder.h"
 
 template<typename T>
-Recorder<T>::~Recorder()
+NodalRecorder<T>::~NodalRecorder()
 {
 }
 
 template<typename T>
-Recorder<T>::Recorder()
+NodalRecorder<T>::NodalRecorder()
 {
 }
 
 template<typename T>
-Recorder<T>::Recorder(std::vector<int> nodesID)
+NodalRecorder<T>::NodalRecorder(std::vector<int> nodesID)
 {
 	_nodesID = nodesID;
 }
 
 template<typename T>
-Recorder<T>::Recorder(char c, std::map<int, Node*> allNodes)
+NodalRecorder<T>::NodalRecorder(char c, std::map<int, Node*>* allNodes)
 {
 	if (c == 'a') {
 		std::map<int, Node*>::iterator it;
-		_nodesID.reserve(allNodes.size());
-		for (int i = 0; i < allNodes.size(); i++) {
+		_nodesID.reserve(allNodes->size());
+		for (int i = 0; i < allNodes->size(); i++) {
 			_nodesID.push_back(i + 1);
 		}
 	}
@@ -33,7 +33,7 @@ Recorder<T>::Recorder(char c, std::map<int, Node*> allNodes)
 }
 
 template<typename T>
-void Recorder<T>::Add(std::map<int, T> map)
+void NodalRecorder<T>::Add(std::map<int, T> map)
 {
 	std::map<int, T> values;
 
@@ -48,7 +48,7 @@ void Recorder<T>::Add(std::map<int, T> map)
 }
 
 template<typename T>
-const std::map<int, std::map<int, T>> Recorder<T>::GetRecord() const
+const std::map<int, std::map<int, T>> NodalRecorder<T>::GetRecord() const
 {
 	return _records;
 }

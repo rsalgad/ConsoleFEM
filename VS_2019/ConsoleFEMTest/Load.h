@@ -32,7 +32,7 @@ public:
 	static Matrix AssembleLoadMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp );
 	static Matrix AssembleLoadMatrixWithFlag(const StructureManager* structManager, const PreAnalysisSetUp* setUp, std::string flag);
 	static Matrix AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Support> &vecSup);
-	static Matrix GetReducedLoadMatrix(const Matrix& loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF);
+	static Matrix GetReducedLoadMatrix(const Matrix* loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF);
 	static std::vector<int> IdentifyIncrementalLoads(std::vector<Load> &vecLoad);
 	static Matrix MultiplyIncrementalTerms(Matrix &redLoadMatrix, std::vector<int> &incIndex, std::vector<Support> &vecSups, double mult);
 	static Matrix GetTotalForceNotOrganized(Matrix &m, Matrix &m2, std::vector<Support> &vecSup, std::vector<Node> &vecNode);

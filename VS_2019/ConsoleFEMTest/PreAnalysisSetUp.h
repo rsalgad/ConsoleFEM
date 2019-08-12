@@ -22,13 +22,15 @@ public:
 	const Matrix* ConstForces() const;
 	const Matrix* IncForces() const;
 	const int* LoadSteps() const;
-	
+	const int* Iterations() const;
+	const std::vector<int>* DispLoadDOFs() const;
 	
 private:
 	void SetUpThreadsForShells(const std::map<int, ShellElement*>* listOfShells);
 	void CalculateReducedStiffMatrixSize();
 	void CalculateForceMatrices();
 	void CalculateLoadFactors();
+	void CalculateDispLoadDOFs();
 	const StructureManager* _structDetails = nullptr;
 	std::map<int, std::vector<ShellElement*>> _shellThreads;
 	const int _nThreads = std::thread::hardware_concurrency();
@@ -41,5 +43,6 @@ private:
 	int _nLoadSteps;
 	int _nIterations;
 	bool _breakAnalysis = false; //indicates if the analysis should be stopped
+	std::vector<int> _dispLoadDOFs;
 };
 

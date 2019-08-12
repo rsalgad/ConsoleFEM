@@ -232,12 +232,12 @@ Matrix Load::AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Supp
 	return Matrix(complete, size, 1);
 }
 
-Matrix Load::GetReducedLoadMatrix(const Matrix &loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF) {
+Matrix Load::GetReducedLoadMatrix(const Matrix* loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF) {
 	// Returns the load matrix minus the rows associated with support conditions.
 	// The vector of loads MUST be already sorted when it is passed.
 
 	int remove = 0; //keeps track of the amount of loads that were removed from the matrix
-	Matrix reduced(MatrixOperation::CopyMatrixDouble(loadMatrix), loadMatrix.GetDimX(), loadMatrix.GetDimY());
+	Matrix reduced(MatrixOperation::CopyMatrixDouble(*loadMatrix), loadMatrix->GetDimX(), loadMatrix->GetDimY());
 	
 	std::map<int, Support*>::const_iterator it = mapSup->begin();
 	

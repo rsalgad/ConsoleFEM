@@ -155,6 +155,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="AnalysisMethod.h" />
+    <ClInclude Include="AnalysisSpringRecorder.h" />
     <ClInclude Include="CyclicAnalysis.h" />
     <ClInclude Include="Displacement.h" />
     <ClInclude Include="DynamicAnalysis.h" />
@@ -174,7 +175,7 @@
     <ClInclude Include="OrthotropicElasticMaterial.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="PreAnalysisSetUp.h" />
-    <ClInclude Include="Recorder.h" />
+    <ClInclude Include="NodalRecorder.h" />
     <ClInclude Include="resource.h" />
     <ClInclude Include="ReverseCyclic.h" />
     <ClInclude Include="SeismicLoad.h" />
@@ -192,6 +193,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AnalysisMethod.cpp" />
+    <ClCompile Include="AnalysisSpringRecorder.cpp" />
     <ClCompile Include="ConsoleFEMTest.cpp" />
     <ClCompile Include="CyclicAnalysis.cpp" />
     <ClCompile Include="Displacement.cpp" />
@@ -217,7 +219,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="PreAnalysisSetUp.cpp" />
-    <ClCompile Include="Recorder.cpp" />
+    <ClCompile Include="NodeRecorder.cpp" />
     <ClCompile Include="ReverseCyclic.cpp" />
     <ClCompile Include="SeismicLoad.cpp" />
     <ClCompile Include="ShellElement.cpp" />

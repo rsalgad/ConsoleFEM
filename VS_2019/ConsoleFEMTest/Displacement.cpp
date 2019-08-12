@@ -106,21 +106,10 @@ Matrix Displacement::GetDisplacementByNodeID(int const &ID, Matrix &totalDisplac
 	return Matrix(disp, DOF, 1);
 }
 
-std::vector<Node> Displacement::GetNewNodalCoordinates(std::vector<Node> &oriVec, Matrix &totalDisp) {
-	std::vector<Node> newVec;
-	newVec.reserve(oriVec.size());
-	for (int i = 0; i < oriVec.size(); i++) { //for each node we have in the problem
-		int nodeID = i + 1;
-		Matrix dispNode = GetDisplacementByNodeID(nodeID, totalDisp);
-		newVec.emplace_back(nodeID, oriVec[i].GetX() + dispNode.GetMatrixDouble()[0][0], oriVec[i].GetY() + dispNode.GetMatrixDouble()[1][0], oriVec[i].GetZ() + dispNode.GetMatrixDouble()[2][0], oriVec[i].GetRx() + dispNode.GetMatrixDouble()[3][0], oriVec[i].GetRy() + dispNode.GetMatrixDouble()[4][0], oriVec[i].GetRz() + dispNode.GetMatrixDouble()[5][0]);
-	}
-	return newVec;
-}
-
 std::map<int, Node*> Displacement::GetNewNodalCoordinates(const std::map<int, Node*>* oriMap, Matrix& totalDisp) {
 	std::map<int, Node*> newMap;
-	std::map<int, Node*>::const_iterator it = oriMap.begin();
-	while (it != oriMap.end()) { //for each node we have in the problem
+	std::map<int, Node*>::const_iterator it = oriMap->begin();
+	while (it != oriMap->end()) { //for each node we have in the problem
 		int nodeID = it->first;
 		Matrix dispNode = GetDisplacementByNodeID(nodeID, totalDisp);
 		newMap.insert(std::pair<int, Node*> (nodeID, new Node(nodeID, it->second->GetX() + dispNode.GetMatrixDouble()[0][0], it->second->GetY() + dispNode.GetMatrixDouble()[1][0], it->second->GetZ() + dispNode.GetMatrixDouble()[2][0], it->second->GetRx() + dispNode.GetMatrixDouble()[3][0], it->second->GetRy() + dispNode.GetMatrixDouble()[4][0], it->second->GetRz() + dispNode.GetMatrixDouble()[5][0])));
@@ -129,60 +118,77 @@ std::map<int, Node*> Displacement::GetNewNodalCoordinates(const std::map<int, No
 }
 
 //This function is responsible for updating all the parameters relevant tot he identification of which region the spring is at in its cyclic material model
-void Displacement::UpdatePositionVectorsOfSprings(std::vector<std::vector<double>> &oldPos, std::vector<std::vector<double>> &newPos, Matrix &newDisp, std::vector<Spring3D> &vecEle, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, std::vector<std::vector<double>> &oldListOfMinDisp, std::vector<std::vector<double>> &oldListOfMaxDisp, std::vector<std::vector<double>> &oldListOfPlasticDisp, std::vector<std::vector<double>> &newListOfPlasticDisp, std::vector<std::vector<std::string>> &listOfLoadStages, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp, std::vector<std::vector<double>> &oldListOfUnlDisp, std::vector<std::vector<double>> &oldListOfRelDisp, std::vector<std::vector<double>> &maxDispPerIter, std::vector<std::vector<double>> &minDispPerIter, std::vector<std::vector<double>> &unlDispPerIter, std::vector<std::vector<double>> &relDispPerIter, std::vector<std::vector<std::string>> &oldSpringStages, std::vector<std::vector<std::string>> &newSpringStages) {
+void Displacement::UpdatePositionVectorsOfSprings(Matrix* newDisp, const std::map<int, Spring3D*>* vecEle, const AnalysisSpringRecorder* springRecorder, const int* DOF) {
 
-	int DOF = 6;
+	std::map<int, Spring3D*>::const_iterator it = vecEle->begin();
+	while (it != vecEle->end()) {
+		Spring3D* spring = it->second;
 
-	for (int i = 0; i < vecEle.size(); i++) { //for each spring element
-		Spring3D* spring = &vecEle[i];
-		std::vector<double> pos;
-		pos.reserve(3);
-		pos.emplace_back(newDisp.GetMatrixDouble()[(spring->GetNode2().GetID() - 1)*DOF][0]); //x
-		pos.emplace_back(newDisp.GetMatrixDouble()[(spring->GetNode2().GetID() - 1)*DOF + 1][0]); //y
-		pos.emplace_back(newDisp.GetMatrixDouble()[(spring->GetNode2().GetID() - 1)*DOF + 2][0]); //z
 
+		springRecorder->GetDisplacementMap().find("disp")->second.find("new")->second.find(spring->GetID());
 		std::vector<double> newList;
 		newList.reserve(3);
-		newList.emplace_back(pos[0]);
-		newList.emplace_back(pos[1]);
-		newList.emplace_back(pos[2]);
+		newList.emplace_back(newDisp->GetMatrixDouble()[(spring->GetNode2().GetID() - 1) * (*DOF)][0]); //x
+		newList.emplace_back(newDisp->GetMatrixDouble()[(spring->GetNode2().GetID() - 1) * (*DOF) + 1][0]); //y
+		newList.emplace_back(newDisp->GetMatrixDouble()[(spring->GetNode2().GetID() - 1) * (*DOF) + 2][0]); //z
 
-		oldPos[i] = newPos[i]; //make the current 'new' spring pos as the 'old' pos.
-		newPos[i] = newList; //update the new spring pos
+		//make the current 'new' spring pos as the 'old' pos.
+		springRecorder->GetDisplacementMap().find("disp")->second.find("old")->second.find(spring->GetID())->second = springRecorder->GetDisplacementMap().find("disp")->second.find("new")->second.find(spring->GetID())->second;
+		
+		//update the new spring pos
+		springRecorder->GetDisplacementMap().find("disp")->second.find("new")->second.find(spring->GetID())->second = newList;
 
-		oldListOfMinDisp[i] = listOfMinDisp[i]; //updates the old list of min disp with the actual values before changing them
-		oldListOfMaxDisp[i] = listOfMaxDisp[i];
-		oldListOfPlasticDisp[i] = newListOfPlasticDisp[i];
-
-		oldListOfUnlDisp[i] = listOfUnlDisp[i];
-		oldListOfRelDisp[i] = listOfRelDisp[i];
-
-		oldSpringStages[i] = newSpringStages[i];
+		//updates the old list of min disp with the actual values before changing them
+		springRecorder->GetDisplacementMap().find("minDisp")->second.find("old")->second.find(spring->GetID())->second = springRecorder->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(spring->GetID())->second;
+		springRecorder->GetDisplacementMap().find("maxDisp")->second.find("old")->second.find(spring->GetID())->second = springRecorder->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(spring->GetID())->second;
+		springRecorder->GetDisplacementMap().find("plasticDisp")->second.find("old")->second.find(spring->GetID())->second = springRecorder->GetDisplacementMap().find("plasticDisp")->second.find("new")->second.find(spring->GetID())->second;
+		springRecorder->GetDisplacementMap().find("unlDisp")->second.find("old")->second.find(spring->GetID())->second = springRecorder->GetDisplacementMap().find("unlDisp")->second.find("new")->second.find(spring->GetID())->second;
+		springRecorder->GetDisplacementMap().find("relDisp")->second.find("old")->second.find(spring->GetID())->second = springRecorder->GetDisplacementMap().find("relDisp")->second.find("new")->second.find(spring->GetID())->second;
+		springRecorder->GetStagesMap().find("old")->second.find(spring->GetID())->second = springRecorder->GetStagesMap().find("old")->second.find(spring->GetID())->second;
 
 		std::vector<int> matPos = spring->GetListOfGlobalMaterialDirections();
 
-		for (int j = 0; j < newList.size(); j++) {
-			if (newList[j] > maxDispPerIter[i][j]) {
-				listOfMaxDisp[i][j] = newList[j];
+		for (int j = 0; j < newList.size(); j++) { //for each DOF
+			if (newList[j] > springRecorder->GetDisplacementPerIterMap().find("maxDispIter")->second.find(spring->GetID())->second[j]) {
+				springRecorder->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(spring->GetID())->second[j] = newList[j];
 			}
 			else {
-				listOfMaxDisp[i][j] = maxDispPerIter[i][j];
+				springRecorder->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(spring->GetID())->second[j] = springRecorder->GetDisplacementPerIterMap().find("maxDispIter")->second.find(spring->GetID())->second[j];
 			}
-			
-			if (newList[j] < minDispPerIter[i][j]) {
-				listOfMinDisp[i][j] = newList[j];
+
+			if (newList[j] < springRecorder->GetDisplacementPerIterMap().find("minDispIter")->second.find(spring->GetID())->second[j]) {
+				springRecorder->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(spring->GetID())->second[j] = newList[j];
 			}
 			else {
-				listOfMinDisp[i][j] = minDispPerIter[i][j];
+				springRecorder->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(spring->GetID())->second[j] = springRecorder->GetDisplacementPerIterMap().find("minDispIter")->second.find(spring->GetID())->second[j];
 			}
 
-			//becauase 'stage' didn't account for the minD and maxD changes, a new stage is calcualted after the minD and maxD values are already accounted for in the previous lines.
-			newSpringStages[i][j] = spring->GetListOfMaterials()[matPos[j]]->GetLoadingStage(newList[j], listOfMaxDisp[i][j], listOfMinDisp[i][j], listOfLoadStages[i][j], unlDispPerIter[i][j], relDispPerIter[i][j]);
+			//because 'stage' didn't account for the minD and maxD changes, a new stage is calcualted after the minD and maxD values are already accounted for in the previous lines.
+			springRecorder->GetStagesMap().find("new")->second.find(spring->GetID())->second[j] 
+				= spring->GetListOfMaterials()[matPos[j]]->GetLoadingStage(newList[j], springRecorder->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(spring->GetID())->second[j],
+					springRecorder->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(spring->GetID())->second[j],
+					springRecorder->GetStagesMap().find("list")->second.find(spring->GetID())->second[j],
+					springRecorder->GetDisplacementPerIterMap.find("unlDispPerIter")->second.find(spring->GetID())->second[j],
+					springRecorder->GetDisplacementPerIterMap.find("relDispPerIter")->second.find(spring->GetID())->second[j]);
 
-			spring->GetListOfMaterials()[matPos[j]]->UpdateUnlAndRelDisps(newSpringStages[i][j], listOfLoadStages[i][j], newList[j], listOfMaxDisp[i][j], listOfMinDisp[i][j], listOfUnlDisp[i][j], listOfRelDisp[i][j], unlDispPerIter[i][j], relDispPerIter[i][j]);
+			spring->GetListOfMaterials()[matPos[j]]->UpdateUnlAndRelDisps(springRecorder->GetStagesMap().find("new")->second.find(spring->GetID())->second[j],
+				springRecorder->GetStagesMap().find("list")->second.find(spring->GetID())->second[j],
+				newList[j], springRecorder->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(spring->GetID())->second[j],
+				springRecorder->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(spring->GetID())->second[j],
+				springRecorder->GetDisplacementMap().find("unlDisp")->second.find("new")->second.find(spring->GetID())->second[j],
+				springRecorder->GetDisplacementMap().find("relDisp")->second.find("new")->second.find(spring->GetID())->second[j],
+				springRecorder->GetDisplacementPerIterMap.find("unlDispPerIter")->second.find(spring->GetID())->second[j],
+				springRecorder->GetDisplacementPerIterMap.find("relDispPerIter")->second.find(spring->GetID())->second[j]);
 
-			newListOfPlasticDisp[i][j] = spring->GetListOfMaterials()[matPos[j]]->GetPlasticDisplacement(newList[j], listOfMaxDisp[i][j], listOfMinDisp[i][j], listOfLoadStages[i][j], newSpringStages[i][j], unlDispPerIter[i][j], relDispPerIter[i][j]);
+			springRecorder->GetDisplacementMap().find("plasticDisp")->second.find("new")->second.find(spring->GetID())->second[j] = spring->GetListOfMaterials()[matPos[j]]->GetPlasticDisplacement(newList[j],
+				springRecorder->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(spring->GetID())->second[j],
+				springRecorder->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(spring->GetID())->second[j],
+				springRecorder->GetStagesMap().find("list")->second.find(spring->GetID())->second[j],
+				springRecorder->GetStagesMap().find("new")->second.find(spring->GetID())->second[j],
+				springRecorder->GetDisplacementPerIterMap.find("unlDispPerIter")->second.find(spring->GetID())->second[j],
+				springRecorder->GetDisplacementPerIterMap.find("relDispPerIter")->second.find(spring->GetID())->second[j]);
 		}
+		it++;
 	}
 }
 

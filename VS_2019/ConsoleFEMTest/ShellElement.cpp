@@ -1354,12 +1354,10 @@ Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix &m, std::vector<std::
 	return k11;
 }
 
-void ShellElement::AssembleCompleteGlobalMassMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::vector<Support> &sup, std::mutex& mu) {
-	int DOF = 6; //# of degrees of freedom in each shell element
-
-	for (int k = 0; k < vecEle.size(); k++) { // for each element
-		ShellElement* ele = &vecEle[k];
-		Matrix global = (ele->GetMassMatrixTheory()); //45x45 matrix returns
+void ShellElement::AssembleCompleteGlobalMassMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu) {
+	for (int k = 0; k < vecEle->size(); k++) { // for each element
+		ShellElement* ele = (*vecEle)[k];
+		Matrix global = ele->GetMassMatrixTheory(); //45x45 matrix returns
 		std::vector<std::vector<int>> vec = ele->GetGlobalDOFVector();
 		int runs = vec.size(); //number of DOFs not restrained
 		for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix

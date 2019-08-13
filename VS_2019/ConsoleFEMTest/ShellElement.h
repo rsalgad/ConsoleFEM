@@ -65,7 +65,7 @@ public:
 	static void GetNinthNodeDisplacement(Matrix &totalDisplacementMatrix, std::vector<ShellElement> &listElements);
 	static Matrix CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec);
 	static Matrix GetMassMatrixNonZeroMassOnly(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec);
-	static void AssembleCompleteGlobalMassMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::vector<Support> &sup, std::mutex& mu);
+	static void AssembleCompleteGlobalMassMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu);
 	static std::vector<std::vector<int>> CrescentOrderDOFVector(std::vector<std::vector<int>>& oriVec);
 	static Matrix ConvertAccFromReducedToTotal(Matrix &acc, std::vector<std::vector<int>> &totalMassDOFVec, int size);
 	static Matrix ReducedAccelerationForceMatrix(Matrix &m, std::vector<std::vector<int>>& totalMassDOFVec);

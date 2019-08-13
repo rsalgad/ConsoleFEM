@@ -112,3 +112,11 @@ void AnalysisSpringRecorder::InitializeAllVectors()
 	map6.insert(std::pair<std::string, std::map<int, std::vector<std::string>>>("new", map5));
 	map6.insert(std::pair<std::string, std::map<int, std::vector<std::string>>>("list", map5));
 }
+
+void AnalysisSpringRecorder::UpdatePerIterDisps()
+{
+	_perIterDisps.find("maxDisp")->second = _disps.find("maxDisp")->second.find("new")->second;
+	_perIterDisps.find("minDisp")->second = _disps.find("minDisp")->second.find("new")->second;
+	_perIterDisps.find("unlDisp")->second = _disps.find("unlDisp")->second.find("new")->second;
+	_perIterDisps.find("relDisp")->second = _disps.find("relDisp")->second.find("new")->second;
+}

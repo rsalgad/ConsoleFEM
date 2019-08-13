@@ -1,6 +1,7 @@
 #include "pch.h"
 #include "Mass.h"
 #include "MatrixOperation.h"
+#include "StructureManager.h"
 
 Mass::Mass()
 {
@@ -153,20 +154,20 @@ bool Mass::HasDOFAppliedMass(std::vector<Mass*> mass, int DOF) {
 	return false;
 }
 
-Matrix Mass::AddExplicitMassesOnExistingMatrix(Matrix& shellMass, std::vector<Mass>& listOfMasses, std::vector<Support*> listOfSups)
+void Mass::AddExplicitMassesOnExistingMatrix(Matrix* shellMass, const StructureManager* structManager, const int* DOF)
 {
-	Matrix newMass(MatrixOperation::CopyMatrixDouble(shellMass), shellMass.GetDimX(), shellMass.GetDimY());
-	int DOF = 6;
-	for (int i = 0; i < listOfMasses.size(); i++) {
-		Mass m = listOfMasses[i];
-		int nodeID = m.GetNode();
-		for (int j = 0; j < m.GetMassVector().size(); j++) {
-			int dof = (nodeID - 1) * DOF + (m.GetMassVector()[j][0] - 1);
-			int val = Support::NumberOfDOFBeforeDOF(dof, listOfSups);
-			newMass.GetMatrixDouble()[dof - val][dof - val] += m.GetMassVector()[j][1];
+	std::map<int, Mass*>::const_iterator it = structManager->Masses()->begin();
+
+	while (it != structManager->Masses()->end()) {
+		Mass* m = it->second;
+		int nodeID = m->GetNode();
+		for (int j = 0; j < m->GetMassVector().size(); j++) {
+			int dof = (nodeID - 1) * (*DOF) + (m->GetMassVector()[j][0] - 1);
+			int val = Support::NumberOfDOFBeforeDOF(&dof, structManager->Supports());
+			shellMass->GetMatrixDouble()[dof - val][dof - val] += m->GetMassVector()[j][1];
 		}
+		it++;
 	}
-	return newMass;
 }
 
 Mass::~Mass()

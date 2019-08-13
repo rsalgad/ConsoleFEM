@@ -15,12 +15,12 @@ AnalysisMethod::~AnalysisMethod()
 {
 }
 
-const int AnalysisMethod::LoadSteps() const
+const int* AnalysisMethod::LoadSteps() const
 {
-	return _nLoadSteps;
+	return &_nLoadSteps;
 }
 
-const int AnalysisMethod::Iterations() const
+const int* AnalysisMethod::Iterations() const
 {
-	return _niterations;
+	return &_niterations;
 }

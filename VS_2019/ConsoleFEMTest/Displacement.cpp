@@ -71,21 +71,24 @@ Matrix Displacement::GetTotalDisplacementMatrix(Matrix &m, const StructureManage
 	return Matrix(disp, *setUp->StiffMatrixSize(), 1);
 }
 
-Matrix Displacement::GetTotalDisplacementNotOrganized(Matrix &m, std::vector<Support*> vecSup, std::vector<Node> &vecNode, std::vector<Spring3D> &listOfSpring, std::vector<std::vector<double>> &listOfPlasticDisp) {
-	int DOF = 6;
-	Matrix d(vecNode.size()*DOF, 1);
+Matrix Displacement::GetTotalDisplacementNotOrganized(const Matrix* m, const StructureManager* structManager, const std::map<int, std::vector<double>>* listOfPlasticDisp, const int* DOF) {
+	Matrix d(structManager->Nodes()->size()*(*DOF), 1);
 
-	for (int i = 0; i < m.GetDimX(); i++) { //copying the terms of the m matrix to the d matrix
-		d.GetMatrixDouble()[i][0] = m.GetMatrixDouble()[i][0];
+	for (int i = 0; i < m->GetDimX(); i++) { //copying the terms of the m matrix to the d matrix
+		d.GetMatrixDouble()[i][0] = m->GetMatrixDouble()[i][0];
 	}
 
-	for (int i = 0; i < listOfPlasticDisp.size(); i++) { //for each spring
-		for (int j = 0; j < listOfPlasticDisp[i].size(); j++) { //for each DOF of the spring
-			int nodeID = listOfSpring[i].GetNode2().GetID();
-			int DOFNode = (nodeID - 1) * DOF + j;
-			int count = Support::NumberOfDOFBeforeDOF(DOFNode, vecSup);
-			d.GetMatrixDouble()[DOFNode - count][0] -= listOfPlasticDisp[i][j]; //remove the plastic displacement from the displacements
+	std::map<int, std::vector<double>>::const_iterator it = listOfPlasticDisp->begin();
+
+	while (it != listOfPlasticDisp->end()) {
+		int springID = it->first;
+		for (int j = 0; j < it->second.size(); j++) { //for each DOF of the spring
+			int nodeID = structManager->SpringElements()->find(springID)->second->GetNode2().GetID();
+			int DOFNode = (nodeID - 1) * (*DOF) + j;
+			int count = Support::NumberOfDOFBeforeDOF(&DOFNode, structManager->Supports());
+			d.GetMatrixDouble()[DOFNode - count][0] -= it->second[j]; //remove the plastic displacement from the displacements
 		}
+		it++;
 	}
 
 	/*

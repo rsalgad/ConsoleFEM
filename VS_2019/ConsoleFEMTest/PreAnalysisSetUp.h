@@ -8,7 +8,7 @@ class PreAnalysisSetUp
 public:
 	PreAnalysisSetUp();
 	~PreAnalysisSetUp();
-	PreAnalysisSetUp(const StructureManager* structManager, const AnalysisMethod* analysisMethod, int nLoadSteps, int nIterations );
+	PreAnalysisSetUp(const StructureManager* structManager, const AnalysisMethod* analysisMethod);
 	
 	std::vector<int> IdentifyIncrementalLoads();
 	void CalculateShellsGlobalDOFVector();
@@ -31,6 +31,7 @@ private:
 	void CalculateForceMatrices();
 	void CalculateLoadFactors();
 	void CalculateDispLoadDOFs();
+
 	const StructureManager* _structDetails = nullptr;
 	std::map<int, std::vector<ShellElement*>> _shellThreads;
 	const int _nThreads = std::thread::hardware_concurrency();
@@ -39,7 +40,7 @@ private:
 	Matrix _constForces;
 	Matrix _incrForces;
 	std::vector<double> _loadFactors;
-	const AnalysisMethod* _analysisMethod;
+	AnalysisMethod* _analysisMethod;
 	int _nLoadSteps;
 	int _nIterations;
 	bool _breakAnalysis = false; //indicates if the analysis should be stopped

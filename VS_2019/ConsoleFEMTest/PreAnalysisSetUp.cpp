@@ -1,6 +1,9 @@
 #include "pch.h"
 #include "AnalysisMethod.h"
 #include "PreAnalysisSetUp.h"
+#include "SeismicLoad.h"
+#include "ImpulseLoad.h"
+#include "DynamicAnalysis.h"
 
 PreAnalysisSetUp::PreAnalysisSetUp()
 {
@@ -10,12 +13,10 @@ PreAnalysisSetUp::~PreAnalysisSetUp()
 {
 }
 
-PreAnalysisSetUp::PreAnalysisSetUp(const StructureManager* structManager, const AnalysisMethod* analysisMethod, int nLoadSteps, int nIterations)
+PreAnalysisSetUp::PreAnalysisSetUp(const StructureManager* structManager, const AnalysisMethod* analysisMethod)
 {
 	_structDetails = structManager;
 	_analysisMethod = analysisMethod;
-	_nLoadSteps = nLoadSteps;
-	_nIterations = nIterations;
 }
 
 std::vector<int> PreAnalysisSetUp::IdentifyIncrementalLoads()
@@ -96,27 +97,7 @@ const Matrix* PreAnalysisSetUp::IncForces() const
 
 const int* PreAnalysisSetUp::LoadSteps() const
 {
-	switch (_analysisMethod->Type())
-	{
-	case AnalysisTypes::Elastic:
-		return &_nLoadSteps;
-		break;
-	case AnalysisTypes::Monotonic:
-		return &_nLoadSteps;
-		break;
-	case AnalysisTypes::Cyclic:
-		return &_nLoadSteps;
-		break;
-	case AnalysisTypes::Reverse_Cyclic:
-		break;
-	case AnalysisTypes::Seismic:
-		break;
-	case AnalysisTypes::Impulse:
-		break;
-	default:
-		return nullptr;
-		break;
-	}
+	return _analysisMethod->LoadSteps();
 }
 
 const int* PreAnalysisSetUp::Iterations() const
@@ -166,8 +147,25 @@ void PreAnalysisSetUp::CalculateReducedStiffMatrixSize()
 
 void PreAnalysisSetUp::CalculateForceMatrices()
 {
+	switch (_analysisMethod->Type())
+	{
+	case AnalysisTypes::Seismic:
+	{
+		_incrForces = Load::AssembleLoadMatrixWithFlag(_structDetails, this, "seismic");
+		break;
+	}
+	case AnalysisTypes::Impulse:
+	{
+		_incrForces = Load::AssembleLoadMatrixWithFlag(_structDetails, this, "impulse");
+		break;
+	}
+	default:
+		_incrForces = Load::AssembleLoadMatrixWithFlag(_structDetails, this, "increment");
+		break;
+	}
+
 	_constForces = Load::AssembleLoadMatrixWithFlag(_structDetails, this, "constant");
-	_incrForces = Load::AssembleLoadMatrixWithFlag(_structDetails, this, "increment");
+
 }
 
 void PreAnalysisSetUp::CalculateLoadFactors()
@@ -176,6 +174,7 @@ void PreAnalysisSetUp::CalculateLoadFactors()
 	{
 	case AnalysisTypes::Cyclic: 
 	{
+		_loadFactors.reserve(_nLoadSteps);
 		for (int step = 0; step < _nLoadSteps; step++) {
 			int stepsPerCycle = stepsPerPeak * 2;//return the total number of steps inside each full cycle
 			int cycle = step / stepsPerCycle; //return the number of cycles already covered
@@ -195,6 +194,7 @@ void PreAnalysisSetUp::CalculateLoadFactors()
 	}
 	case AnalysisTypes::Reverse_Cyclic:
 	{
+		_loadFactors.reserve(_nLoadSteps);
 		for (int step = 0; step < _nLoadSteps; step++) {
 			int stepsPerCycle = stepsPerPeak * 4;//return the total number of steps inside each full cycle
 			int cycle = step / stepsPerCycle; //return the number of cycles already covered
@@ -205,7 +205,7 @@ void PreAnalysisSetUp::CalculateLoadFactors()
 			double increment = currentPeak / stepsPerPeak;
 
 			if (aux2 == 0) {
-				_loadFactors.push_back(aux * increment)s;
+				_loadFactors.push_back(aux * increment);
 			}
 			else if (aux2 == 1) {
 				_loadFactors.push_back(currentPeak - (aux - stepsPerPeak) * increment);
@@ -220,6 +220,32 @@ void PreAnalysisSetUp::CalculateLoadFactors()
 				_loadFactors.push_back(0);
 			}
 		}
+	}
+	case AnalysisTypes::Impulse:
+	{
+		const double* deltaT = static_cast<DynamicAnalysis*>(_analysisMethod)->DeltaT();
+		_loadFactors.reserve(_nLoadSteps);
+		for (int step = 0; step < _nLoadSteps; step++) {
+			double time = (step + 1) * (*deltaT);
+
+			if (time <= impLoad.GetPoints()[0][0]) {
+				double val = impLoad.GetPoints()[0][1] * time / impLoad.GetPoints()[0][0];
+				_loadFactors.push_back(val);
+			}
+			else if (time < impLoad.GetPoints()[impLoad.GetPoints().size() - 1][0]) {
+				for (int i = 0; i < impLoad.GetPoints().size() - 1; i++) {
+					if (time > impLoad._points[i][0] && time <= impLoad._points[i + 1][0]) {
+						double val = (impLoad.GetPoints()[i][1] * (impLoad.GetPoints()[i + 1][0] - time) + impLoad.GetPoints()[i + 1][1] * (time - impLoad.GetPoints()[i][0])) / (impLoad.GetPoints()[i + 1][0] - impLoad.GetPoints()[i][0]);
+						_loadFactors.push_back(val);
+					}
+				}
+			}
+			else {
+				double val = impLoad.GetPoints()[impLoad.GetPoints().size() - 1][1]; //whatever the last point is is remained constant
+				_loadFactors.push_back(val);
+			}
+		}
+		break;
 	}
 	default:
 		_loadFactors.reserve(_nLoadSteps);

@@ -1,6 +1,7 @@
 #pragma once
 #include "Matrix.h"
 #include "Support.h"
+#include "StructureManager.h"
 #include <vector>
 
 class Mass
@@ -20,7 +21,7 @@ public:
 	~Mass();
 
 	static void SortByNodeID(std::vector<Mass> &mass);
-	static Matrix AddExplicitMassesOnExistingMatrix(Matrix &shellMass, std::vector<Mass> &listOfMasses, std::vector<Support*> listOfSups);
+	static void AddExplicitMassesOnExistingMatrix(Matrix* shellMass, const StructureManager* structManager, const int* DOF);
 	static bool HasDOFAppliedMass(std::vector<Mass*> mass, int DOF);
 private:
 	int _ID, _nodeID;

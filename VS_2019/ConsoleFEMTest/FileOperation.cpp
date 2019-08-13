@@ -15,7 +15,7 @@
 #include "Spring3D.h"
 #include "OrthotropicElasticMaterial.h"
 #include "StructureManager.h"
-#include "Recorder.h"
+#include "NodalRecorder.h"
 #include <fstream>
 
 using namespace tinyxml2;
@@ -464,7 +464,7 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 	}
 }
 
-void FileOperation::SaveIterationsResult(std::string fileName, const Recorder<Node*>* disps, const std::map<int, Node*>* nodes) {
+void FileOperation::SaveIterationsResult(std::string fileName, const NodalRecorder<Node*>* disps, const std::map<int, Node*>* nodes) {
 	
 	std::ofstream myfile;
 	std::map<int, std::map<int, Node*>>::const_iterator it = disps->GetRecord().begin();
@@ -484,18 +484,34 @@ void FileOperation::SaveIterationsResult(std::string fileName, const Recorder<No
 	myfile.close();
 }
 
-void FileOperation::SaveIterationsForceResult(std::string fileName, std::vector<Matrix> result) {
+//I'm pretty sure this function is not used anymore
+/*
+void FileOperation::SaveIterationsForceResult(std::string fileName, const const NodalRecorder<Load*>* forces) {
 	std::ofstream myfile;
 
-	for (int i = 0; i < result.size(); i++) { //for each iteration
-		myfile.open(fileName + std::to_string(i + 1) + ".txt");
-		int j = 0;
-		while (j < result[i].GetDimX()) {
-			myfile << result[i].GetMatrixDouble()[j][0] << " " << result[i].GetMatrixDouble()[j + 1][0] << " " << result[i].GetMatrixDouble()[j + 2][0] << std::endl;
-			j += 6;
+	std::map<int, std::map<int, Load*>>::const_iterator it = forces->GetRecord().begin();
+
+	while (it != forces->GetRecord().end()) {
+
+		myfile.open(fileName + std::to_string(it->first + 1) + ".txt");
+		double Fx = 0.0, Fy = 0.0, Fz = 0.0;
+		for (int j = 0; j < it->second->GetLoadVector().size; j++) {
+			if (it->second->GetLoadVector()[j][0] == 1)
+			{
+				Fx = it->second->GetLoadVector()[j][1];
+			}
+			else if (it->second->GetLoadVector()[j][0] == 2) {
+				Fy = it->second->GetLoadVector()[j][1];
+			}
+			else if (it->second->GetLoadVector()[j][0] == 3) {
+				Fz = it->second->GetLoadVector()[j][1];
+			}
 		}
+		myfile << Fx << " " << Fy << " " << Fz << std::endl;
 		myfile.close();
+		it++;
 	}
 }
+*/
 
 

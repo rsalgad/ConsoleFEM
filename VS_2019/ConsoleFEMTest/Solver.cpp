@@ -96,7 +96,7 @@ Matrix Solver::ReducedShellStiffMatrix(const StructureManager* structManager, co
 			}
 		}
 
-		it = setUp->GetShellThreads()->end();
+		it = setUp->GetShellThreads()->find(setUp->AvailableThreads - 1);
 		ShellElement::AssembleCompleteGlobalMatrixThreads(&it->second, m, matrixLock);
 
 		for (int i = 0; i < threadList.size(); i++) {
@@ -106,23 +106,31 @@ Matrix Solver::ReducedShellStiffMatrix(const StructureManager* structManager, co
 	return m;
 }
 
-Matrix Solver::CompleteShellMassMatrixThreads(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Support> &listOfSupports, int nThreads, std::vector<std::vector<ShellElement>> &shellElemVecs) {
-	int DOF = 6;
-	int size = listOfNodes.size()*DOF - Support::TotalDOFsRestrained(listOfSupports);
-	Matrix m(size, size);
+Matrix Solver::CompleteShellMassMatrixThreads(const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
+	Matrix m(*setUp->ReducedStiffMatrixSize(), *setUp->ReducedStiffMatrixSize());
 
-	if (listOfShells.size() != 0) {
+	if (structManager->ShellElements()->size() != 0) {
 		std::mutex matrixLock;
 		std::vector<std::thread> threadList;
-		for (int i = 0; i < (nThreads - 1); i++) {
-			threadList.emplace_back(ShellElement::AssembleCompleteGlobalMassMatrixThreads, std::ref(shellElemVecs[i]), std::ref(m), std::ref(listOfSupports), std::ref(matrixLock));
+		std::map<int, std::vector<ShellElement*>>::const_iterator it;
+
+		for (int i = 0; i < (setUp->AvailableThreads - 1); i++) {
+			it = setUp->GetShellThreads()->find(i + 1);
+			if (it != setUp->GetShellThreads()->end()) {
+				threadList.emplace_back(ShellElement::AssembleCompleteGlobalMassMatrixThreads, &it->second, std::ref(m), std::ref(matrixLock));
+			}
 		}
-		ShellElement::AssembleCompleteGlobalMassMatrixThreads(shellElemVecs.back(), m, listOfSupports, matrixLock);
+
+		it = setUp->GetShellThreads()->find(setUp->AvailableThreads - 1);
+		ShellElement::AssembleCompleteGlobalMassMatrixThreads(&it->second, m, matrixLock);
 
 		for (int i = 0; i < threadList.size(); i++) {
 			threadList[i].join();
 		}
 	}
+
+	Mass::AddExplicitMassesOnExistingMatrix(&m, structManager, setUp->DOF()); //adds any additional mass to the existing shell masses
+
 	return m;
 }
 

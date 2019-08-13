@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "SeismicLoad.h"
 #include "Matrix.h"
-#include <iostream>
-
 
 SeismicLoad::SeismicLoad()
 {

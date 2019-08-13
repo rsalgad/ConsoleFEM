@@ -17,7 +17,7 @@ public:
 	//static Matrix CompleteStiffnessMatrixWithThreads(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, int nThreads);
 	static Matrix ReducedStiffnessMatrix(const Matrix* shellStiff, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecorder, double* highStiff);
 	static Matrix ReducedShellStiffMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp);
-	static Matrix CompleteShellMassMatrixThreads(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Support> &listOfSupports, int nThreads, std::vector<std::vector<ShellElement>> &shellElemVecs);
+	static Matrix CompleteShellMassMatrixThreads(const StructureManager* structManager, const PreAnalysisSetUp* setUp);
 	static Matrix ReducedSpringStiffMatrix(const int* redSize, const std::map<int, Spring3D*>* listOfSprings, const AnalysisSpringRecorder* springRecorder);
 	static Matrix ReducedRestrictStiffnessMatrix(const Matrix* shellStiff, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecorder);
 	static Matrix ReducedSpringRestrictedStiffMatrix(const int* redSize, const std::map<int, Spring3D*>* listOfSprings, const AnalysisSpringRecorder* springRecorder);

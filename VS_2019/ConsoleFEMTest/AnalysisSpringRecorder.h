@@ -17,6 +17,7 @@ public:
 	std::map<std::string, std::map<int, std::vector<double>>> GetDisplacementPerIterMap() const;
 
 	void InitializeAllVectors();
+	void UpdatePerIterDisps();
 
 private:
 	//Hierarchy-> First map keys: "disp", "minDisp", "maxDisp", "plasticDisp", "unlDisp", "relDisp", "maxDispIter", "minDispIter", "unlDispIter", "relDispIter".

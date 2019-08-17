@@ -1,8 +1,11 @@
 #pragma once
+//#include "pch.h"
 #include <vector>
+#include <string>
 #include "Matrix.h"
 
-class SeismicLoad
+
+class SeismicLoad : public DynamicLoad
 {
 public:
 	SeismicLoad();
@@ -13,10 +16,11 @@ public:
 	void SetRecordX(std::vector<double> record);
 	void SetRecordY(std::vector<double> record);
 	void SetRecordZ(std::vector<double> record);
-	double LoadFromTime(double t, char dir);
-	int GetIndexOfDirection(char dir);
+	double LoadFromTime(double t, char dir) const;
+	int GetIndexOfDirection(char dir) const;
+	std::string GetType() override;
 
-	static Matrix GetSeismicLoadVector(SeismicLoad &sLoad, Matrix &FInc, double t);
+	static Matrix GetSeismicLoadVector(const SeismicLoad* sLoad, const Matrix* FInc, const double* t);
 	
 	~SeismicLoad();
 

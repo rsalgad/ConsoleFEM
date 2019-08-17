@@ -149,6 +149,9 @@
     <ClInclude Include="AnalysisSpringRecorder.h">
       <Filter>Header Files</Filter>
     </ClInclude>
+    <ClInclude Include="DynamicLoad.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConsoleFEMTest.cpp">
@@ -253,10 +256,13 @@
     <ClCompile Include="DynamicAnalysis.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="NodeRecorder.cpp">
+    <ClCompile Include="AnalysisSpringRecorder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="AnalysisSpringRecorder.cpp">
+    <ClCompile Include="DynamicLoad.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="NodalRecorder.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

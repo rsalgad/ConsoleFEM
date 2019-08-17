@@ -1,12 +1,13 @@
 #pragma once
-#include "pch.h"
-#include "Node.h"
-#include "Load.h"
-#include "Support.h"
-#include "ShellElement.h"
-#include "Spring3D.h"
-#include "Mass.h"
-#include <map>
+//#include "pch.h"
+#include "MaterialModel.h"
+
+class ShellElement;
+class Spring3D;
+class Load;
+class Support;
+class Mass;
+class Node;
 
 class StructureManager
 {
@@ -31,6 +32,7 @@ public:
 	const std::map<int, MaterialModel*>* Materials() const;
 	MaterialModel* FindMaterialByID(int ID);
 
+	void SortSupportsByNodeID();
 	void PrintNodes();
 	void PrintShellElement();
 	void PrintSpringElement();
@@ -38,10 +40,8 @@ public:
 	void PrintSupports();
 	void PrintMasses();
 
-	void CalculateShellsGlobalDOFVector();
-	void CalculateSpringsGlobalDOFVector();
-
 private:
+	Support* FindSupportByNodeID(int nodeID) const;
 	std::map<int, Node*> _strucNodes;
 	std::map<int, ShellElement*> _strucShells;
 	std::map<int, Spring3D*> _strucSprings;

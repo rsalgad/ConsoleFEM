@@ -1,7 +1,4 @@
 #include "pch.h"
-#include "Matrix.h"
-#include "MatrixOperation.h"
-#include <iostream>
 #include <mutex>
 #include <thread>
 //<summary> Creates an identity matrix with the desired dimension </summary> 
@@ -868,16 +865,16 @@ void MatrixOperation::PopulateDiagonalOnly(std::vector<double>& terms, Matrix &m
 }
 
 //toFill and filler must have the same dimensions
-Matrix MatrixOperation::FillMatrixBasedOnOtherMatrix(const Matrix &toFill, const Matrix& filler) {
-	Matrix m(toFill.GetDimX(), toFill.GetDimY());
+Matrix MatrixOperation::FillMatrixBasedOnOtherMatrix(const Matrix* toFill, const Matrix* filler) {
+	Matrix m(toFill->GetDimX(), toFill->GetDimY());
 
 	for (int i = 0; i < m.GetDimX(); i++) {
 		for (int j = 0; j < m.GetDimY(); j++) {
-			if (toFill.GetMatrixDouble()[i][j] == 0) {
-				m.GetMatrixDouble()[i][j] = filler.GetMatrixDouble()[i][j];
+			if (toFill->GetMatrixDouble()[i][j] == 0) {
+				m.GetMatrixDouble()[i][j] = filler->GetMatrixDouble()[i][j];
 			}
 			else {
-				m.GetMatrixDouble()[i][j] = toFill.GetMatrixDouble()[i][j];
+				m.GetMatrixDouble()[i][j] = toFill->GetMatrixDouble()[i][j];
 			}
 		}
 	}

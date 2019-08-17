@@ -1,15 +1,20 @@
 #pragma once
-#include "Node.h"
-#include "Matrix.h"
-#include "ElasticMaterial.h"
-#include "OrthotropicElasticMaterial.h"
+//#include "pch.h"
 #include "Support.h"
-#include "Mass.h"
-#include "Element.h"
+#include "StructureManager.h";
+#include "Node.h"
+#include "OrthotropicElasticMaterial.h"
+#include "Matrix.h"
+
+#include <vector>
+#include <string>
 #include <thread>
 #include <mutex>
+#include <map>
 
-class ShellElement : public Element
+class StructureManager;
+
+class ShellElement
 {
 public:
 	ShellElement();
@@ -27,8 +32,8 @@ public:
 	void SetNodeList(std::vector<Node *> nodeList);
 	bool IsDOFRotational(int &DOF);
 	//std::vector<int> GlobalDOFVector();
-	void CalculateGlobalDOFVector(std::vector<Support*> supList);
-	void CalculateGlobalMassDOFVector(std::vector<Mass*> massList, std::vector<Support*> supList);
+	void CalculateGlobalDOFVector(const std::map<int, Support*>* supList, const int* DOF);
+	void CalculateGlobalMassDOFVector(const StructureManager* structManager, const int* DOF);
 	const std::vector<std::vector<int>> GetGlobalDOFVector() const;
 	const std::vector<std::vector<int>> GetGlobalMassDOFVector() const;
 	const std::vector<std::vector<int>> GetGlobalRestDOFVector() const;
@@ -62,15 +67,15 @@ public:
 	//static void AssembleCompleteGlobalMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::mutex& mu);
 	static void AssembleCompleteGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu);
 	static void AssembleCompleteRestrictedGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, const int* unrestrictDOFs, std::mutex& mu);
-	static void GetNinthNodeDisplacement(Matrix &totalDisplacementMatrix, std::vector<ShellElement> &listElements);
-	static Matrix CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec);
-	static Matrix GetMassMatrixNonZeroMassOnly(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec);
+	static void GetNinthNodeDisplacement(const Matrix* totalDisplacementMatrix, const std::map<int, ShellElement*>* listElements, const int* DOF);
+	static Matrix CondensedReducedStiffMatrixForModal(const Matrix* m, const std::vector<std::vector<int>>* totalMassDOFVec);
+	static Matrix GetMassMatrixNonZeroMassOnly(const Matrix* m, const std::vector<std::vector<int>>* totalMassDOFVec);
 	static void AssembleCompleteGlobalMassMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu);
 	static std::vector<std::vector<int>> CrescentOrderDOFVector(std::vector<std::vector<int>>& oriVec);
-	static Matrix ConvertAccFromReducedToTotal(Matrix &acc, std::vector<std::vector<int>> &totalMassDOFVec, int size);
-	static Matrix ReducedAccelerationForceMatrix(Matrix &m, std::vector<std::vector<int>>& totalMassDOFVec);
+	static Matrix ConvertAccFromReducedToTotal(const Matrix* acc, const std::vector<std::vector<int>>* totalMassDOFVec, const int* size);
+	static Matrix ReducedAccelerationForceMatrix(const Matrix* m, const std::vector<std::vector<int>>* totalMassDOFVec, const int* DOF);
 	static bool IsDOFInTheNinthNode(int DOF, std::vector<ShellElement> &vecEle);
-	static std::vector<std::vector<int>> GetTotalGlobalMassDOFVector(std::vector<ShellElement> &vecEle);
+	static std::vector<std::vector<int>> GetTotalGlobalMassDOFVector(const std::map<int, ShellElement*>* vecEle);
 
 private:
 	int _ID, _layers;

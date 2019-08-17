@@ -1,8 +1,8 @@
 #pragma once
-#include <Eigen/EigenValues>
-#include "Node.h"
 #include "Support.h"
+#include "Node.h"
 #include "Matrix.h"
+#include <Eigen/EigenValues>
 
 class MatrixOperation
 {
@@ -44,7 +44,7 @@ public:
 	static void ConvertToEigenMatrix(const Matrix &m, Eigen::MatrixXd& eigenMatrix);
 	static Matrix Sqrt(const Matrix &m);
 	static void PopulateDiagonalOnly(std::vector<double>& terms, Matrix &m);
-	static Matrix FillMatrixBasedOnOtherMatrix(const Matrix &toFill, const Matrix &filler);
+	static Matrix FillMatrixBasedOnOtherMatrix(const Matrix* toFill, const Matrix* filler);
 
 private:
 	MatrixOperation();

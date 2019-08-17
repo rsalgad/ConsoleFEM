@@ -1,13 +1,5 @@
 #include "pch.h"
-#include "ShellElement.h"
-#include "ElasticMaterial.h"
-#include "OrthotropicElasticMaterial.h"
-#include "Support.h"
-#include "Mass.h"
-#include "MatrixOperation.h"
-#include "VectorOperation.h"
-#include <math.h>
-#include <iostream>
+//#include "StructureManager.h"
 #include <thread>
 #include <mutex>
 
@@ -65,7 +57,7 @@ std::string ShellElement::ToString() const {
 	shell += ", ";
 	shell += "Nodes: ";
 	for (int i = 0; i < _nodeList.size(); i++){
-		shell += std::to_string(_nodeList[i]->GetID());
+		shell += std::to_string(*_nodeList[i]->GetID());
 		if (i != _nodeList.size() - 1) {
 			shell += " ";
 		}
@@ -121,35 +113,37 @@ std::vector<int> ShellElement::GlobalDOFVector() {
 
 //<summary>Calculates the global degree of freedom vector of the element</summary>
 //<comment>This is a vector that stores the global DOF position of each term in the local stiffness matrix. It returns the DOFs that are not constrained by a support. </comment>
-void ShellElement::CalculateGlobalDOFVector(std::vector<Support*> supList) {
+void ShellElement::CalculateGlobalDOFVector(const std::map<int, Support*>* supList, const int* DOF) {
 	std::vector<std::vector<int>> vecFree;
 	std::vector<std::vector<int>> vecRestr;
 
-	int DOF = 6;
+	std::map<int, Support*>::const_iterator it = supList->begin();
+
 	for (int i = 0; i < _nodeList.size(); i++) // for each node
 	{
-		Node n = *_nodeList[i];
+		Node* n = _nodeList[i];
 		//int count = Support::NumberOfDOFBeforeNode(n.GetID(), supList);
-		int init = (n.GetID() - 1)*DOF;//if node 1, its 'coordinate' in the stiffness matrix is 0, if 2 -> 6, if 3 -> 12;
-		int initLocal = i * DOF;
+		int init = (*n->GetID() - 1) * *DOF;//if node 1, its 'coordinate' in the stiffness matrix is 0, if 2 -> 6, if 3 -> 12;
+		int initLocal = i * *DOF; //in the stiff matrix, this is the second node
 
-		if (Support::IsNodeConstrained(supList, n.GetID())) { //if true = node has some constraint
-			for (int j = 0; j < DOF; j++) {
-				if (!Support::IsDOFConstrained(init + j, supList)) { //if true = DOF of the node is not constrained
-					int count = Support::NumberOfDOFBeforeDOF(init + j, supList);
+		if (Support::IsNodeConstrained(supList, n->GetID())) { //if true = node has some constraint
+			for (int j = 0; j < *DOF; j++) {
+				int val = init + j;
+				if (!Support::IsDOFConstrained(&val, supList, DOF)) { //if true = DOF of the node is not constrained
+					int count = Support::NumberOfDOFBeforeDOF(&val, supList, DOF);
 					std::vector<int> vec1 = { init + j - count, initLocal + j};
 					vecFree.push_back(vec1);
 				}
 				else { // DOF of the node is constrained
-					int count = Support::NumberOfDOFBeforeDOF(init + j, supList);
+					int count = Support::NumberOfDOFBeforeDOF(&val, supList, DOF);
 					std::vector<int> vec1 = { count, initLocal + j };
 					vecRestr.push_back(vec1);
 				}
 			}
 		}
 		else { //if node has no restraint, no need to check if 'IsDOFConstrained' all the time
-			int count = Support::NumberOfDOFBeforeDOF(init, supList);
-			for (int j = 0; j < DOF; j++) {
+			int count = Support::NumberOfDOFBeforeDOF(&init, supList, DOF);
+			for (int j = 0; j < *DOF; j++) {
 				std::vector<int> vec1 = { init + j - count, initLocal + j};
 				vecFree.push_back(vec1);
 			}
@@ -160,25 +154,26 @@ void ShellElement::CalculateGlobalDOFVector(std::vector<Support*> supList) {
 }
 
 
-void ShellElement::CalculateGlobalMassDOFVector(std::vector<Mass*> massList, std::vector<Support*> supList) {
+void ShellElement::CalculateGlobalMassDOFVector(const StructureManager* structManager, const int* DOF) {
 	std::vector<std::vector<int>> vecMass;
 
-	int DOF = 6;
 	for (int i = 0; i < _nodeList.size(); i++) // for each node
 	{
-		Node n = *_nodeList[i];
+		Node* n = _nodeList[i];
 		//int count = Support::NumberOfDOFBeforeNode(n.GetID(), supList);
-		int init = (n.GetID() - 1)*DOF;//if node 1, its 'coordinate' in the stiffness matrix is 0, if 2 -> 6, if 3 -> 12;
-		int initLocal = i * DOF;
+		int init = (*n->GetID() - 1) * *DOF;//if node 1, its 'coordinate' in the stiffness matrix is 0, if 2 -> 6, if 3 -> 12;
+		int initLocal = i * *DOF;
 
-		if (Support::IsNodeConstrained(supList, n.GetID())) { //if true = node has some constraint
-			for (int j = 0; j < DOF; j++) {
-				if (!Support::IsDOFConstrained(init + j, supList)) { //if DOF is not constrained
-					int count = Support::NumberOfDOFBeforeDOF(init + j, supList);
+		if (Support::IsNodeConstrained(structManager->Supports(), n->GetID())) { //if true = node has some constraint
+			for (int j = 0; j < *DOF; j++) {
+				int val = init + j;
+				if (!Support::IsDOFConstrained(&val, structManager->Supports(), DOF)) { //if DOF is not constrained
+					int count = Support::NumberOfDOFBeforeDOF(&val, structManager->Supports(), DOF);
 					int globDOF = init + j - count;
 					int locDOF = initLocal + j;
 					
-					if (!Mass::HasDOFAppliedMass(massList, globDOF + count)) { //if DOF does not have mass
+					int val2 = globDOF + count;
+					if (!Mass::HasDOFAppliedMass(&val2, structManager->Masses(), DOF)) { //if DOF does not have mass
 						bool rot = IsDOFRotational(locDOF);
 						if (rot || _massRho == 0 || locDOF == 48 || locDOF == 49 || locDOF == 50) {//if it is not rotational nor the ninthNode
 							std::vector<int> vec1 = { globDOF, locDOF };
@@ -189,12 +184,13 @@ void ShellElement::CalculateGlobalMassDOFVector(std::vector<Mass*> massList, std
 			}
 		}
 		else { //if node has no restraint, no need to check if 'IsDOFConstrained' all the time
-			int count = Support::NumberOfDOFBeforeDOF(init, supList);
-			for (int j = 0; j < DOF; j++) {
+			int count = Support::NumberOfDOFBeforeDOF(&init, structManager->Supports(), DOF);
+			for (int j = 0; j < *DOF; j++) {
 				int globDOF = init + j - count;
 				int locDOF = initLocal + j;
 
-				if (!Mass::HasDOFAppliedMass(massList, globDOF + count)) { //if DOF does not have mass
+				int val2 = globDOF + count;
+				if (!Mass::HasDOFAppliedMass(&val2, structManager->Masses(), DOF)) { //if DOF does not have mass
 					bool rot = IsDOFRotational(locDOF);
 					if (rot || _massRho == 0 || locDOF == 48 || locDOF == 49 || locDOF == 50) {//if it is not rotational nor the ninthNode
 						std::vector<int> vec1 = { globDOF, locDOF };
@@ -235,9 +231,9 @@ Matrix ShellElement::Get_v3(bool first, double e, double n) const {
 		double rx = 0, ry = 0, rz = 0;
 		for (int i = 0; i < _nodeList.size(); i++) { //should this include all 9 nodes or just the 8?
 			double shape = ShapeFunctionN(i + 1, e, n);
-			rx += shape * _nodeList[i]->GetRx();
-			ry += shape * _nodeList[i]->GetRy();
-			rz += shape * _nodeList[i]->GetRz();
+			rx += shape * *_nodeList[i]->GetRx();
+			ry += shape * *_nodeList[i]->GetRy();
+			rz += shape * *_nodeList[i]->GetRz();
 		}
 		if (rx == 0 && ry == 0 && rz == 0){
 			unitV3.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(_v3));
@@ -636,9 +632,9 @@ Matrix ShellElement::GetJacobian(double &e, double &n, double &c) const {
 		dNdn = ShellElement::ShapeFunctionNDerivative(node + 1, 'n', e, n);
 		N = ShellElement::ShapeFunctionN(node + 1, e, n);
 		double nodeX, nodeY, nodeZ;
-		nodeX = (*_nodeList[node]).GetX();
-		nodeY = (*_nodeList[node]).GetY();
-		nodeZ = (*_nodeList[node]).GetZ();
+		nodeX = *_nodeList[node]->GetX();
+		nodeY = *_nodeList[node]->GetY();
+		nodeZ = *_nodeList[node]->GetZ();
 
 		J[0][0] += dNde * nodeX + dNde*(thick / 2)*c*v3[0][0];
 		J[0][1] += dNde * nodeY + dNde*(thick / 2)*c*v3[1][0];
@@ -1114,7 +1110,7 @@ const Matrix ShellElement::GetGlobalStiffMatrix() const {
 //<mu>A way of protecting the different threads of acessing the same information at the same time</mu>
 void ShellElement::AssembleCompleteGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu) {
 	for (int k = 0; k < vecEle->size(); k++) { // for each element
-		const ShellElement* ele = (*vecEle)[k];
+		ShellElement* ele = (*vecEle)[k];
 		Matrix global = ele->GetGlobalStiffMatrix(); //45x45 matrix returns
 		std::vector<std::vector<int>> vec = ele->GetGlobalDOFVector();
 		int runs = vec.size(); //number of DOFs not restrained
@@ -1131,7 +1127,7 @@ void ShellElement::AssembleCompleteGlobalMatrixThreads(const std::vector<ShellEl
 
 void ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, const int* unrestrictDOFs, std::mutex& mu) {
 	for (int k = 0; k < vecEle->size(); k++) { // for each element
-		const ShellElement* ele = (*vecEle)[k];
+		ShellElement* ele = (*vecEle)[k];
 		std::vector<std::vector<int>> vecRest = ele->GetGlobalRestDOFVector();
 		if (vecRest.size() != 0) {
 			std::vector<std::vector<int>> vecGlobal = ele->GetGlobalDOFVector();
@@ -1155,30 +1151,35 @@ void ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(const std::vect
 }
 
 //<summary>Calculates the displacement of the ninth node of the element</summary>
-void ShellElement::GetNinthNodeDisplacement(Matrix &totalDisplacementMatrix, std::vector<ShellElement> &listElements) {
-	int DOF = 6;
-	double** matrix = totalDisplacementMatrix.GetMatrixDouble();
-	for (int i = 0; i < listElements.size(); i++) { //for each element
+void ShellElement::GetNinthNodeDisplacement(const Matrix *totalDisplacementMatrix, const std::map<int, ShellElement*>* listElements, const int* DOF) {
+
+	double** matrix = totalDisplacementMatrix->GetMatrixDouble();
+	std::map<int, ShellElement*>::const_iterator it = listElements->begin();
+
+	while (it != listElements->end()) {//for each element
+
 		double x = 0, y = 0, z = 0, rx = 0, ry = 0;
 		double e = 0, n = 0;
-		std::vector<Node *> nodeList = listElements[i].GetNodeList();
-		int ninthNodeID = (*nodeList[8]).GetID();
+		std::vector<Node*> nodeList = it->second->GetNodeList();
+		int ninthNodeID = *nodeList[8]->GetID();
 
 		for (int j = 0; j < 8; j++) { //use the other 8 nodes to calculate the displacement of the ninth node
 			double shape = ShellElement::ShapeFunctionN(j + 1, e, n);
-			int nodeID = (*nodeList[j]).GetID();
-			x += shape * matrix[(nodeID - 1)*DOF][0];
-			y += shape * matrix[(nodeID - 1)*DOF + 1][0];
-			z += shape * matrix[(nodeID - 1)*DOF + 2][0];
-			rx += shape * matrix[(nodeID - 1)*DOF + 3][0];
-			ry += shape * matrix[(nodeID - 1)*DOF + 4][0];
+			int nodeID = *nodeList[j]->GetID();
+			x += shape * matrix[(nodeID - 1) * (*DOF)][0];
+			y += shape * matrix[(nodeID - 1) * (*DOF) + 1][0];
+			z += shape * matrix[(nodeID - 1) * (*DOF) + 2][0];
+			rx += shape * matrix[(nodeID - 1) * (*DOF) + 3][0];
+			ry += shape * matrix[(nodeID - 1) * (*DOF) + 4][0];
 		}
 
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF][0] = x;
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF + 1][0] = y;
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF + 2][0] = z;
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF + 3][0] += rx;
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF + 4][0] += ry;
+		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF)][0] = x;
+		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 1][0] = y;
+		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 2][0] = z;
+		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 3][0] += rx;
+		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 4][0] += ry;
+
+		it++;
 	}
 }
 
@@ -1220,14 +1221,13 @@ std::vector<std::vector<int>> ShellElement::CrescentOrderDOFVector(std::vector<s
 }
 
 
-Matrix ShellElement::ConvertAccFromReducedToTotal(Matrix &acc, std::vector<std::vector<int>> &totalMassDOFVec, int size) {
-	int DOF = 6;
+Matrix ShellElement::ConvertAccFromReducedToTotal(const Matrix* acc,const std::vector<std::vector<int>>* totalMassDOFVec,const int* size) {
 	int count = 0;
 
-	Matrix ans(size, 1);
+	Matrix ans(*size, 1);
 
 	bool hasMass = true;
-	for (int k = 0; k < size; k++) {
+	for (int k = 0; k < *size; k++) {
 		/*
 		for (int i = 0; i < vecEle.size(); i++) { //for each shell element
 			ShellElement* ele = &vecEle[i];
@@ -1242,14 +1242,14 @@ Matrix ShellElement::ConvertAccFromReducedToTotal(Matrix &acc, std::vector<std::
 			}
 		}
 		*/
-		for (int i = 0; i < totalMassDOFVec.size(); i++) { //for each shell element
-			if (k == totalMassDOFVec[i][0]) {
+		for (int i = 0; i < totalMassDOFVec->size(); i++) { //for each shell element
+			if (k == (*totalMassDOFVec)[i][0]) {
 				hasMass = false;
 			}
 		}
 
 		if (hasMass) {
-			ans.GetMatrixDouble()[k][0] = acc.GetMatrixDouble()[count][0];
+			ans.GetMatrixDouble()[k][0] = acc->GetMatrixDouble()[count][0];
 			count++;
 		}
 		else {
@@ -1260,12 +1260,16 @@ Matrix ShellElement::ConvertAccFromReducedToTotal(Matrix &acc, std::vector<std::
 	return ans;
 }
 
-std::vector<std::vector<int>> ShellElement::GetTotalGlobalMassDOFVector(std::vector<ShellElement> &vecEle) {
+std::vector<std::vector<int>> ShellElement::GetTotalGlobalMassDOFVector(const std::map<int, ShellElement*>* vecEle) {
 	std::vector<std::vector<int>> ans;
-	for (int i = 0; i < vecEle.size(); i++) { //for each shell element
-		ShellElement* ele = &vecEle[i];
+	
+	std::map<int, ShellElement*>::const_iterator it = vecEle->begin();
+
+	while (it != vecEle->end()) {//for each shell element
+		ShellElement* ele = it->second;
 		std::vector<std::vector<int>> vec = ele->GetGlobalMassDOFVector();
 		ans.insert(ans.end(), vec.begin(), vec.end());
+		it++;
 	}
 
 	std::vector<std::vector<int>> organized = ShellElement::CrescentOrderDOFVector(ans);
@@ -1286,12 +1290,12 @@ std::vector<std::vector<int>> ShellElement::GetTotalGlobalMassDOFVector(std::vec
 	return answer;
 }
 
-Matrix ShellElement::CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec) {
+Matrix ShellElement::CondensedReducedStiffMatrixForModal(const Matrix* m, const std::vector<std::vector<int>>* totalMassDOFVec) {
 
 	int DOF = 6;
 	int count = 0;
 
-	Matrix matrix(MatrixOperation::CopyMatrixDouble(m), m.GetDimX(), m.GetDimY());
+	Matrix matrix(MatrixOperation::CopyMatrixDouble(*m), m->GetDimX(), m->GetDimY());
 	/*
 	for (int i = 0; i < vecEle.size(); i++) { //for each shell element
 		ShellElement* ele = &vecEle[i];
@@ -1306,8 +1310,8 @@ Matrix ShellElement::CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<
 		}
 	}
 	*/
-	for (int i = 0; i < totalMassDOFVec.size(); i++) { //for each shell element
-		int DOF = totalMassDOFVec[i][0]; //index on the global reduced matrix
+	for (int i = 0; i < totalMassDOFVec->size(); i++) { //for each shell element
+		int DOF = (*totalMassDOFVec)[i][0]; //index on the global reduced matrix
 		MatrixOperation::MoveLineAndColumnToEnd(matrix, DOF - count); //move the line and column from the original DOF in the global reduced matrix to the last line and column
 		count++;
 	}
@@ -1322,11 +1326,10 @@ Matrix ShellElement::CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<
 	return ans;
 }
 
-Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix &m, std::vector<std::vector<int>>& totalMassDOFVec) {
-	int DOF = 6;
+Matrix ShellElement::ReducedAccelerationForceMatrix(const Matrix* m, const std::vector<std::vector<int>>* totalMassDOFVec, const int* DOF) {
 	int count = 0;
 
-	Matrix matrix(MatrixOperation::CopyMatrixDouble(m), m.GetDimX(), m.GetDimY());
+	Matrix matrix(MatrixOperation::CopyMatrixDouble(*m), m->GetDimX(), m->GetDimY());
 
 	/*
 	for (int i = 0; i < vecEle.size(); i++) { //for each shell element
@@ -1343,8 +1346,8 @@ Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix &m, std::vector<std::
 	}
 	*/
 
-	for (int i = 0; i < totalMassDOFVec.size(); i++) { //for each shell element
-		int DOF = totalMassDOFVec[i][0]; //index on the global reduced matrix
+	for (int i = 0; i < totalMassDOFVec->size(); i++) { //for each shell element
+		int DOF = (*totalMassDOFVec)[i][0]; //index on the global reduced matrix
 		MatrixOperation::MoveLineToEnd(matrix, DOF - count); //move the line and column from the original DOF in the global reduced matrix to the last line and column
 		count++;
 	}
@@ -1371,13 +1374,13 @@ void ShellElement::AssembleCompleteGlobalMassMatrixThreads(const std::vector<She
 	}
 }
 
-Matrix ShellElement::GetMassMatrixNonZeroMassOnly(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec) {
+Matrix ShellElement::GetMassMatrixNonZeroMassOnly(const Matrix *m, const std::vector<std::vector<int>>* totalMassDOFVec) {
 
 	int DOF = 6;
 	int count = 0;
 	int massCount = 0;
-	Matrix k11(m.GetDimX() - totalMassDOFVec.size());
-	Matrix matrix(MatrixOperation::CopyMatrixDouble(m), m.GetDimX(), m.GetDimY());
+	Matrix k11(m->GetDimX() - totalMassDOFVec->size());
+	Matrix matrix(MatrixOperation::CopyMatrixDouble(*m), m->GetDimX(), m->GetDimY());
 
 	/*
 	for (int i = 0; i < vecEle.size(); i++) { //for each shell element
@@ -1395,9 +1398,9 @@ Matrix ShellElement::GetMassMatrixNonZeroMassOnly(Matrix &m, std::vector<std::ve
 	*/
 
 
-	for (int i = 0; i < m.GetDimX(); i++) { //for each shell element
-		if (m.GetMatrixDouble()[i][i] != 0) {
-			k11.GetMatrixDouble()[massCount][massCount] = m.GetMatrixDouble()[i][i];
+	for (int i = 0; i < m->GetDimX(); i++) { //for each shell element
+		if (m->GetMatrixDouble()[i][i] != 0) {
+			k11.GetMatrixDouble()[massCount][massCount] = m->GetMatrixDouble()[i][i];
 			massCount++;
 		}
 	}

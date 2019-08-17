@@ -1,18 +1,22 @@
 #pragma once
+//#include "pch.h"
+#include <vector>
+#include <map>
+#include <thread>
 #include "StructureManager.h"
 #include "AnalysisMethod.h"
-#include <map>
+#include "ShellElement.h"
+#include "Matrix.h"
 
 class PreAnalysisSetUp
 {
 public:
 	PreAnalysisSetUp();
 	~PreAnalysisSetUp();
-	PreAnalysisSetUp(const StructureManager* structManager, const AnalysisMethod* analysisMethod);
+	PreAnalysisSetUp(StructureManager *structManager, AnalysisMethod *analysisMethod);
 	
 	std::vector<int> IdentifyIncrementalLoads();
-	void CalculateShellsGlobalDOFVector();
-	void CalculateShellsGlobalMassDOFVector();
+
 	const int* ReducedStiffMatrixSize() const;
 	const int* StiffMatrixSize() const;
 	const int* DOF() const;
@@ -24,10 +28,15 @@ public:
 	const int* LoadSteps() const;
 	const int* Iterations() const;
 	const std::vector<int>* DispLoadDOFs() const;
+	AnalysisMethod* Analysis() const;
 	
 private:
-	void SetUpThreadsForShells(const std::map<int, ShellElement*>* listOfShells);
+	void CalculateShellsGlobalDOFVector();
+	void CalculateShellsGlobalMassDOFVector();
+	void CalculateSpringsGlobalDOFVector();
+	void SetUpThreadsForShells();
 	void CalculateReducedStiffMatrixSize();
+	void CalculateStiffMatrixSize();
 	void CalculateForceMatrices();
 	void CalculateLoadFactors();
 	void CalculateDispLoadDOFs();
@@ -41,9 +50,6 @@ private:
 	Matrix _incrForces;
 	std::vector<double> _loadFactors;
 	AnalysisMethod* _analysisMethod;
-	int _nLoadSteps;
-	int _nIterations;
-	bool _breakAnalysis = false; //indicates if the analysis should be stopped
 	std::vector<int> _dispLoadDOFs;
 };
 

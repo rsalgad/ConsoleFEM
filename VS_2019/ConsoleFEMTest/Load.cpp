@@ -1,10 +1,4 @@
 #include "pch.h"
-#include "Load.h"
-#include "Support.h"
-#include "MatrixOperation.h"
-#include "StructureManager.h"
-#include "PreAnalysisSetUp.h"
-#include <iostream>
 
 
 Load::Load()
@@ -276,6 +270,7 @@ std::vector<int> Load::IdentifyIncrementalLoads(std::vector<Load> &vecLoad) {
 	return indexes;
 }
 
+/* NEVER USED
 Matrix Load::MultiplyIncrementalTerms(Matrix &redLoadMatrix, std::vector<int> &incIndex, std::vector<Support> &vecSups, double mult) {
 
 	Matrix newMatrix(redLoadMatrix.GetDimX(), 1);
@@ -299,6 +294,7 @@ Matrix Load::MultiplyIncrementalTerms(Matrix &redLoadMatrix, std::vector<int> &i
 	}
 	return newMatrix;
 }
+*/
 
 Matrix Load::GetTotalForceNotOrganized(const Matrix* force, const Matrix* react, const StructureManager* structManager, const int* stiffSize) {
 	Matrix d(*stiffSize, 1);
@@ -308,7 +304,7 @@ Matrix Load::GetTotalForceNotOrganized(const Matrix* force, const Matrix* react,
 	}
 
 	
-	for (int i = 0; i < d.GetDimX() - react->GetDimX(); i++) {
+	for (int i = 0; i < d.GetDimX() - force->GetDimX(); i++) {
 		d.GetMatrixDouble()[force->GetDimX() + i][0] = react->GetMatrixDouble()[i][0];
 	}
 	
@@ -333,7 +329,7 @@ Matrix Load::GetTotalForceMatrix(const Matrix* force,const Matrix* react, const 
 		for (int j = 0; j < it->second->GetSupportVector().size(); j++) { //this will store all the global positions and displacement values in vectors
 			int nodeID = it->second->GetNode();
 			int dir = it->second->GetSupportVector()[j][0];
-			int pos = (nodeID - 1) * (*setUp->DOF) + (dir - 1);
+			int pos = (nodeID - 1) * (*setUp->DOF()) + (dir - 1);
 			if (it->second->GetSupportVector()[j][1] == 0) { //only do this if the support is a boundary condition
 				double force = m.GetMatrixDouble()[startOfRestricted + count][0]; //get the reaction on the support
 				vecPos.emplace_back(pos);

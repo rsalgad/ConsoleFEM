@@ -1,7 +1,4 @@
 #include "pch.h"
-#include "SpringAxialModel.h"
-#include <math.h>
-#include <iostream>
 
 
 SpringAxialModel::SpringAxialModel(int ID, double iniStiff, double dMax, double fMax, double degStiff, double fRes, double dUlt, double compStiff, double unlStiff, double fUnl, double conStiff, double relStiff)

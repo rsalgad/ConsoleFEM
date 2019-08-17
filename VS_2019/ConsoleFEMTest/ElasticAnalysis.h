@@ -1,5 +1,7 @@
 #pragma once
+//#include "pch.h"
 #include "AnalysisMethod.h"
+
 class ElasticAnalysis :
 	public AnalysisMethod
 {

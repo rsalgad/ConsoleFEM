@@ -1,9 +1,6 @@
 #include "pch.h"
-#include "AnalysisMethod.h"
-#include "PreAnalysisSetUp.h"
-#include "SeismicLoad.h"
-#include "ImpulseLoad.h"
-#include "DynamicAnalysis.h"
+#include "CyclicAnalysis.h"
+#include "ReverseCyclic.h"
 
 PreAnalysisSetUp::PreAnalysisSetUp()
 {
@@ -13,10 +10,20 @@ PreAnalysisSetUp::~PreAnalysisSetUp()
 {
 }
 
-PreAnalysisSetUp::PreAnalysisSetUp(const StructureManager* structManager, const AnalysisMethod* analysisMethod)
+PreAnalysisSetUp::PreAnalysisSetUp(StructureManager* structManager, AnalysisMethod* analysisMethod)
 {
 	_structDetails = structManager;
 	_analysisMethod = analysisMethod;
+	structManager->SortSupportsByNodeID();
+	CalculateStiffMatrixSize();
+	CalculateReducedStiffMatrixSize();
+	SetUpThreadsForShells();
+	CalculateShellsGlobalDOFVector();
+	CalculateShellsGlobalMassDOFVector();
+	CalculateSpringsGlobalDOFVector();
+	CalculateForceMatrices();
+	CalculateLoadFactors();
+	CalculateDispLoadDOFs();
 }
 
 std::vector<int> PreAnalysisSetUp::IdentifyIncrementalLoads()
@@ -39,18 +46,27 @@ std::vector<int> PreAnalysisSetUp::IdentifyIncrementalLoads()
 
 void PreAnalysisSetUp::CalculateShellsGlobalDOFVector()
 {
-	std::map<int, ShellElement*>::const_iterator it = _structDetails->ShellElements;
+	std::map<int, ShellElement*>::const_iterator it = _structDetails->ShellElements()->begin();
 	while (it != _structDetails->ShellElements()->end()) {
-		it->second->CalculateGlobalDOFVector(_structDetails->Supports);
+		it->second->CalculateGlobalDOFVector(_structDetails->Supports(), &_DOF);
 		it++;
 	}
 }
 
 void PreAnalysisSetUp::CalculateShellsGlobalMassDOFVector()
 {
-	std::map<int, ShellElement*>::const_iterator it = _structDetails->ShellElements;
+	std::map<int, ShellElement*>::const_iterator it = _structDetails->ShellElements()->begin();
 	while (it != _structDetails->ShellElements()->end()) {
-		it->second->CalculateGlobalMassDOFVector(_structDetails->Masses, _structDetails->Supports);
+		it->second->CalculateGlobalMassDOFVector(_structDetails, &_DOF);
+		it++;
+	}
+}
+
+void PreAnalysisSetUp::CalculateSpringsGlobalDOFVector()
+{
+	std::map<int, Spring3D*>::const_iterator it = _structDetails->SpringElements()->begin();
+	while (it != _structDetails->SpringElements()->end()) {
+		it->second->CalculateGlobalDOFVector(_structDetails->Supports(), &_DOF);
 		it++;
 	}
 }
@@ -102,7 +118,7 @@ const int* PreAnalysisSetUp::LoadSteps() const
 
 const int* PreAnalysisSetUp::Iterations() const
 {
-	return &_nIterations;
+	return _analysisMethod->Iterations();
 }
 
 const std::vector<int>* PreAnalysisSetUp::DispLoadDOFs() const
@@ -110,39 +126,70 @@ const std::vector<int>* PreAnalysisSetUp::DispLoadDOFs() const
 	return &_dispLoadDOFs;
 }
 
+AnalysisMethod* PreAnalysisSetUp::Analysis() const
+{
+	return _analysisMethod;
+}
+
 //<summary>Sets up the list of elements that each thread will be responsible for</summary>
-void PreAnalysisSetUp::SetUpThreadsForShells(const std::map<int, ShellElement*>* listOfShells) {
-	int nThreads = std::thread::hardware_concurrency();
-	double amount = listOfShells->size() / nThreads;
+void PreAnalysisSetUp::SetUpThreadsForShells() {
+	double nThreads = std::thread::hardware_concurrency();
+	double amount = _structDetails->ShellElements()->size() / nThreads;
 	int size1, size2;
 	
-	if (fmod(listOfShells->size(), nThreads) != 0) {
-		size1 = floor(amount);
-		size2 = fmod(amount, nThreads) * nThreads;
-	}
-	else {
-		size1 = amount;
-		size2 = 0;
-	}
+	if (_structDetails->ShellElements()->size() >= 2) {
 
-	for (int i = 0; i < nThreads; i++) {
-		if (i < (nThreads - 1))
-		{
-			std::vector<ShellElement*> list;
-			list.assign(listOfShells->begin()->second + i * size1, listOfShells->begin()->second + (i + 1) * size1);
-			_shellThreads.insert(std::pair<int, std::vector<ShellElement*>>(i + 1, list));
+		double div = _structDetails->ShellElements()->size() / nThreads;
+		if (div < 1) { //don't have enough enough elements to fill all cores
+			std::map<int, ShellElement*>::const_iterator it = _structDetails->ShellElements()->begin();
+			while (it != _structDetails->ShellElements()->end()) { //for each shell element -> 1 thread
+				std::vector<ShellElement*> list;
+				list.push_back(it->second);
+				_shellThreads.insert(std::pair<int, std::vector<ShellElement*>>(it->first, list));
+				it++;
+			}
 		}
 		else {
-			std::vector<ShellElement*> list;
-			list.assign(listOfShells->begin()->second + i * size1, listOfShells->end()->second);
-			_shellThreads.insert(std::pair<int, std::vector<ShellElement*>>(i+1, list));
+			int remainingEle = fmod(_structDetails->ShellElements()->size(), nThreads);
+			int elePerThread = (_structDetails->ShellElements()->size() - remainingEle) / (nThreads);
+
+			int counter = 1;
+			int totCounter = 0;
+
+			for (int i = 0; i < nThreads; i++) { //for each thread
+				std::vector<ShellElement*> list;
+				if (counter <= remainingEle) {
+					for (int j = 0; j < elePerThread + 1; j++) {
+						totCounter++;
+						list.push_back(_structDetails->ShellElements()->find(totCounter)->second);
+					}
+				}
+				else {
+					for (int j = 0; j < elePerThread; j++) {
+						totCounter++;
+						list.push_back(_structDetails->ShellElements()->find(totCounter)->second);
+					}
+				}
+				_shellThreads.insert(std::pair<int, std::vector<ShellElement*>>(i + 1, list));
+				counter++;
+			}
 		}
+	}
+	else {
+		std::vector<ShellElement*> list;
+		list.push_back(_structDetails->ShellElements()->find(1)->second);
+		_shellThreads.insert(std::pair<int, std::vector<ShellElement*>>(1, list));
 	}
 }
 
 void PreAnalysisSetUp::CalculateReducedStiffMatrixSize()
 {
 	_redStiffMatrixSize = _structDetails->Nodes()->size() * _DOF - Support::TotalDOFsRestrained(_structDetails->Supports());
+}
+
+void PreAnalysisSetUp::CalculateStiffMatrixSize()
+{
+	_stiffMatrixSize = _structDetails->Nodes()->size() * _DOF;
 }
 
 void PreAnalysisSetUp::CalculateForceMatrices()
@@ -174,47 +221,51 @@ void PreAnalysisSetUp::CalculateLoadFactors()
 	{
 	case AnalysisTypes::Cyclic: 
 	{
-		_loadFactors.reserve(_nLoadSteps);
-		for (int step = 0; step < _nLoadSteps; step++) {
-			int stepsPerCycle = stepsPerPeak * 2;//return the total number of steps inside each full cycle
+		_loadFactors.reserve(*_analysisMethod->LoadSteps());
+		CyclicAnalysis* analysis = static_cast<CyclicAnalysis*>(_analysisMethod);
+
+		for (int step = 0; step < *_analysisMethod->LoadSteps(); step++) {
+			int stepsPerCycle = *analysis->StepsPerPeak() * 2;//return the total number of steps inside each full cycle
 			int cycle = step / stepsPerCycle; //return the number of cycles already covered
 			int aux = step + 1 - cycle * stepsPerCycle; //returns the loadstep inside the current cycle
-			int aux2 = aux / stepsPerPeak; // returns the number of peaks of the current cycle it already covered
+			int aux2 = aux / *analysis->StepsPerPeak(); // returns the number of peaks of the current cycle it already covered
 
-			double currentPeak = iniPeak + (cycle / cyclesPerPeak) * peakInc;
-			double increment = currentPeak / stepsPerPeak;
+			double currentPeak = *analysis->IniPeak() + (cycle / *analysis->CyclesPerPeak()) * *analysis->PeakInc();
+			double increment = currentPeak / *analysis->StepsPerPeak();
 
 			if (aux2 == 0) {
 				_loadFactors.push_back((aux)* increment);
 			}
 			else {
-				_loadFactors.push_back(currentPeak - (aux - stepsPerPeak) * increment);
+				_loadFactors.push_back(currentPeak - (aux - *analysis->StepsPerPeak()) * increment);
 			}
 		}
 	}
 	case AnalysisTypes::Reverse_Cyclic:
 	{
-		_loadFactors.reserve(_nLoadSteps);
-		for (int step = 0; step < _nLoadSteps; step++) {
-			int stepsPerCycle = stepsPerPeak * 4;//return the total number of steps inside each full cycle
+		_loadFactors.reserve(*_analysisMethod->LoadSteps());
+		ReverseCyclic* analysis = static_cast<ReverseCyclic*>(_analysisMethod);
+
+		for (int step = 0; step < *_analysisMethod->LoadSteps(); step++) {
+			int stepsPerCycle = *analysis->StepsPerPeak() * 4;//return the total number of steps inside each full cycle
 			int cycle = step / stepsPerCycle; //return the number of cycles already covered
 			int aux = step + 1 - cycle * stepsPerCycle; //returns the loadstep inside the current cycle
-			int aux2 = aux / stepsPerPeak; // returns the number of peaks of the current cycle it already covered
+			int aux2 = aux / *analysis->StepsPerPeak(); // returns the number of peaks of the current cycle it already covered
 
-			double currentPeak = iniPeak + (cycle / cyclesPerPeak) * peakInc;
-			double increment = currentPeak / stepsPerPeak;
+			double currentPeak = *analysis->IniPeak() + (cycle / *analysis->CyclesPerPeak()) * *analysis->PeakInc();
+			double increment = currentPeak / *analysis->StepsPerPeak();
 
 			if (aux2 == 0) {
 				_loadFactors.push_back(aux * increment);
 			}
 			else if (aux2 == 1) {
-				_loadFactors.push_back(currentPeak - (aux - stepsPerPeak) * increment);
+				_loadFactors.push_back(currentPeak - (aux - *analysis->StepsPerPeak()) * increment);
 			}
 			else if (aux2 == 2) {
-				_loadFactors.push_back(-(aux - aux2 * stepsPerPeak) * increment);
+				_loadFactors.push_back(-(aux - aux2 * *analysis->StepsPerPeak()) * increment);
 			}
 			else if (aux2 == 3) {
-				_loadFactors.push_back(-currentPeak + (aux - aux2 * stepsPerPeak) * increment);
+				_loadFactors.push_back(-currentPeak + (aux - aux2 * *analysis->StepsPerPeak()) * increment);
 			}
 			else {
 				_loadFactors.push_back(0);
@@ -223,34 +274,37 @@ void PreAnalysisSetUp::CalculateLoadFactors()
 	}
 	case AnalysisTypes::Impulse:
 	{
-		const double* deltaT = static_cast<DynamicAnalysis*>(_analysisMethod)->DeltaT();
-		_loadFactors.reserve(_nLoadSteps);
-		for (int step = 0; step < _nLoadSteps; step++) {
-			double time = (step + 1) * (*deltaT);
 
-			if (time <= impLoad.GetPoints()[0][0]) {
-				double val = impLoad.GetPoints()[0][1] * time / impLoad.GetPoints()[0][0];
+		DynamicAnalysis* analysis = static_cast<DynamicAnalysis*>(_analysisMethod);
+		ImpulseLoad* impLoad = static_cast<ImpulseLoad*>(analysis->Load());
+
+		_loadFactors.reserve(*_analysisMethod->LoadSteps());
+		for (int step = 0; step < *_analysisMethod->LoadSteps(); step++) {
+			double time = (step + 1) * (*analysis->DeltaT());
+
+			if (time <= impLoad->GetPoints()[0][0]) {
+				double val = impLoad->GetPoints()[0][1] * time / impLoad->GetPoints()[0][0];
 				_loadFactors.push_back(val);
 			}
-			else if (time < impLoad.GetPoints()[impLoad.GetPoints().size() - 1][0]) {
-				for (int i = 0; i < impLoad.GetPoints().size() - 1; i++) {
-					if (time > impLoad._points[i][0] && time <= impLoad._points[i + 1][0]) {
-						double val = (impLoad.GetPoints()[i][1] * (impLoad.GetPoints()[i + 1][0] - time) + impLoad.GetPoints()[i + 1][1] * (time - impLoad.GetPoints()[i][0])) / (impLoad.GetPoints()[i + 1][0] - impLoad.GetPoints()[i][0]);
+			else if (time < impLoad->GetPoints()[impLoad->GetPoints().size() - 1][0]) {
+				for (int i = 0; i < impLoad->GetPoints().size() - 1; i++) {
+					if (time > impLoad->GetPoints()[i][0] && time <= impLoad->GetPoints()[i + 1][0]) {
+						double val = (impLoad->GetPoints()[i][1] * (impLoad->GetPoints()[i + 1][0] - time) + impLoad->GetPoints()[i + 1][1] * (time - impLoad->GetPoints()[i][0])) / (impLoad->GetPoints()[i + 1][0] - impLoad->GetPoints()[i][0]);
 						_loadFactors.push_back(val);
 					}
 				}
 			}
 			else {
-				double val = impLoad.GetPoints()[impLoad.GetPoints().size() - 1][1]; //whatever the last point is is remained constant
+				double val = impLoad->GetPoints()[impLoad->GetPoints().size() - 1][1]; //whatever the last point is is remained constant
 				_loadFactors.push_back(val);
 			}
 		}
 		break;
 	}
 	default:
-		_loadFactors.reserve(_nLoadSteps);
-		for (int step = 0; step < _nLoadSteps; step++) {
-			_loadFactors.push_back((step + 1) * (1.0 / _nLoadSteps));
+		_loadFactors.reserve(*_analysisMethod->LoadSteps());
+		for (int step = 0; step < *_analysisMethod->LoadSteps(); step++) {
+			_loadFactors.push_back((step + 1) * (1.0 / *_analysisMethod->LoadSteps()));
 		}
 		break;
 	}
@@ -260,3 +314,5 @@ void PreAnalysisSetUp::CalculateDispLoadDOFs()
 {
 	_dispLoadDOFs = Support::GetDisplacementLoadIndexes(&_DOF, _structDetails->Supports());
 }
+
+

@@ -1,7 +1,11 @@
 #include "pch.h"
 #include "MonotonicAnalysis.h"
 
-MonotonicAnalysis::MonotonicAnalysis(int nLoadSteps, int nIterations)
+MonotonicAnalysis::MonotonicAnalysis(int nLoadSteps, int nIterations, double convLimit) : AnalysisMethod(nLoadSteps, nIterations, convLimit)
 {
-	AnalysisMethod(nLoadSteps, nIterations);
+}
+
+const AnalysisTypes MonotonicAnalysis::Type() const
+{
+	return AnalysisTypes::Monotonic;
 }

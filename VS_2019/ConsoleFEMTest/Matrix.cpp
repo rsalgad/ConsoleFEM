@@ -1,9 +1,6 @@
 #include "pch.h"
-#include "Matrix.h"
 #include <thread>
 #include <mutex>
-#include <vector>
-#include <iostream>
 
 Matrix::Matrix()
 {

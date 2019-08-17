@@ -1,0 +1,17 @@
+[0817/114246.786:WARNING:angle_platform_impl.cc(52)] compileToBinary(232): 
+C:\fakepath(53,8-58): warning X3571: pow(f, e) will not work for negative f, use abs(f) or conditionally handle negative values if you expect them
+C:\fakepath(61,9-43): warning X3571: pow(f, e) will not work for negative f, use abs(f) or conditionally handle negative values if you expect them
+
+[0817/114254.682:WARNING:angle_platform_impl.cc(52)] compileToBinary(232): 
+C:\fakepath(35,8-58): warning X3571: pow(f, e) will not work for negative f, use abs(f) or conditionally handle negative values if you expect them
+C:\fakepath(43,9-43): warning X3571: pow(f, e) will not work for negative f, use abs(f) or conditionally handle negative values if you expect them
+
+[0817/114257.311:INFO:CONSOLE(0)] "Uncaught (in promise) #<Object>", source: https://127.0.0.1:54160/login/passphrase?passphrase=74bff65e-a25b-48bd-a21b-3110692f5c97 (0)
+[0817/114258.308:WARNING:angle_platform_impl.cc(52)] compileToBinary(232): 
+C:\fakepath(73,10-42): warning X3571: pow(f, e) will not work for negative f, use abs(f) or conditionally handle negative values if you expect them
+C:\fakepath(95,10-42): warning X3571: pow(f, e) will not work for negative f, use abs(f) or conditionally handle negative values if you expect them
+
+[0817/114301.420:WARNING:angle_platform_impl.cc(52)] compileToBinary(232): 
+C:\fakepath(54,8-58): warning X3571: pow(f, e) will not work for negative f, use abs(f) or conditionally handle negative values if you expect them
+C:\fakepath(62,9-43): warning X3571: pow(f, e) will not work for negative f, use abs(f) or conditionally handle negative values if you expect them
+

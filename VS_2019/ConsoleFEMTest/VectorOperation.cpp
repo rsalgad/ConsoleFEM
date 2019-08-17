@@ -1,5 +1,4 @@
 #include "pch.h"
-#include "VectorOperation.h"
 
 //<summary> Creates a unit vector pointing in the global x direction </summary> 
 Matrix VectorOperation::UnitVecX() {
@@ -25,11 +24,11 @@ Matrix VectorOperation::UnitVecZ() {
 //<summary> Returns a vector that connects n2 and n1. The vector will point towards n2. </summary>
 //<n1> The origin node of the vector </n1>
 //<n2> The 'tip' node of the vector </n2>
-Matrix VectorOperation::VectorFromNodes(const Node &n1, const Node &n2) {
+Matrix VectorOperation::VectorFromNodes(const Node& n1, const Node& n2) {
 	double** vector = Matrix::CreateMatrixDouble(3, 1);
-	vector[0][0] = n2.GetX() - n1.GetX();
-	vector[1][0] = n2.GetY() - n1.GetY();
-	vector[2][0] = n2.GetZ() - n1.GetZ();
+	vector[0][0] = *n2.GetX() - *n1.GetX();
+	vector[1][0] = *n2.GetY() - *n1.GetY();
+	vector[2][0] = *n2.GetZ() - *n1.GetZ();
 	return Matrix(vector, 3, 1);
 }
 

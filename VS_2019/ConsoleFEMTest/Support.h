@@ -1,4 +1,6 @@
 #pragma once
+//#include "pch.h"
+#include <string>
 #include <map>
 #include <vector>
 
@@ -21,11 +23,11 @@ public:
 	void SetSupportVector(std::vector<std::vector<double>> vec);
 	~Support();
 
-	static bool IsNodeConstrained(std::vector<Support*> sup, int nodeID);
+	static bool IsNodeConstrained(const std::map<int, Support*>* sup, const int* nodeID);
 	static void SortByNodeID(std::vector<Support> &sup);
 	static int NumberOfDOFBeforeNode(int nodeID, std::vector<Support> &sup);
-	static int NumberOfDOFBeforeDOF(const int* DOF, const std::map<int, Support*>* sup);
-	static bool IsDOFConstrained(int DOF, std::vector<Support*> sup);
+	static int NumberOfDOFBeforeDOF(const int* DOF, const std::map<int, Support*>* sup, const int* nDOF);
+	static bool IsDOFConstrained(const int* DOF, const std::map<int, Support*>* sup, const int* nDOF);
 	static int TotalDOFsRestrained(const std::map<int, Support*>* sup);
 	static std::vector<int> GetDisplacementLoadIndexes(const int* DOF, const std::map<int, Support*>* vecSup);
 private:

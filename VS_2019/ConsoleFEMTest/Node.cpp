@@ -1,6 +1,4 @@
 #include "pch.h"
-#include "Node.h"
-#include <vector>
 
 
 Node::Node()
@@ -32,7 +30,7 @@ Node::Node(int ID, double x, double y, double z, double rx, double ry, double rz
 Node Node::FindNodeByID(int & ID, std::vector<Node>& vecNode) {
 	//this should be optmized
 	for (int i = 0; i < vecNode.size(); i++) {
-		if (vecNode[i].GetID() == ID) {
+		if (*vecNode[i].GetID() == ID) {
 			return vecNode[i];
 		}
 	}
@@ -41,7 +39,7 @@ Node Node::FindNodeByID(int & ID, std::vector<Node>& vecNode) {
 Node Node::FindNodeByCoordinates(double x, double y, double z, std::vector<Node>& vecNode) {
 	//this should be optmized
 	for (int i = 0; i < vecNode.size(); i++) {
-		if (vecNode[i].GetX() == x && vecNode[i].GetY() == y && vecNode[i].GetZ() == z) {
+		if (*vecNode[i].GetX() == x && *vecNode[i].GetY() == y && *vecNode[i].GetZ() == z) {
 			return vecNode[i];
 		}
 	}
@@ -62,33 +60,33 @@ std::string Node::ToString() const {
 	return row;
 }
 
-int Node::GetID()  const
+const int* Node::GetID()  const
 {
-	return _ID;
+	return &_ID;
 }
 
-double Node::GetX() const{
-	return _x;
+const double* Node::GetX() const{
+	return &_x;
 }
 
-double Node::GetY() const {
-	return _y;
+const double* Node::GetY() const {
+	return &_y;
 }
 
-double Node::GetZ() const {
-	return _z;
+const double* Node::GetZ() const {
+	return &_z;
 }
 
-double Node::GetRx() const {
-	return _rx;
+const double* Node::GetRx() const {
+	return &_rx;
 }
 
-double Node::GetRy() const {
-	return _ry;
+const double* Node::GetRy() const {
+	return &_ry;
 }
 
-double Node::GetRz() const {
-	return _rz;
+const double* Node::GetRz() const {
+	return &_rz;
 }
 
 Node::~Node()

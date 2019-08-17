@@ -1,7 +1,4 @@
 #include "pch.h"
-#include "Mass.h"
-#include "MatrixOperation.h"
-#include "StructureManager.h"
 
 Mass::Mass()
 {
@@ -140,16 +137,18 @@ void Mass::SortByNodeID(std::vector<Mass> &mass) {
 	mass = mass1;
 }
 
-bool Mass::HasDOFAppliedMass(std::vector<Mass*> mass, int DOF) {
-	int nDOF = 6;
-	for (int i = 0; i < mass.size(); i++) { //for each mass
-		int nodeID = mass[i]->GetNode();
-		for (int j = 0; j < mass[i]->GetMassVector().size(); j++) {
-			int calcDof = (nodeID - 1)*nDOF + (mass[i]->GetMassVector()[j][0] - 1);
-			if (calcDof == DOF) {
+bool Mass::HasDOFAppliedMass(const int* DOF, const std::map<int, Mass*>* mass, const int* nDOF) {
+	std::map<int, Mass*>::const_iterator it = mass->begin();
+
+	while (it != mass->end()) {//for each mass
+		int nodeID = it->second->GetNode();
+		for (int j = 0; j < it->second->GetMassVector().size(); j++) {
+			int calcDof = (nodeID - 1) * (*nDOF) + (it->second->GetMassVector()[j][0] - 1);
+			if (calcDof == *DOF) {
 				return true;
 			}
 		}
+		it++;
 	}
 	return false;
 }
@@ -163,7 +162,7 @@ void Mass::AddExplicitMassesOnExistingMatrix(Matrix* shellMass, const StructureM
 		int nodeID = m->GetNode();
 		for (int j = 0; j < m->GetMassVector().size(); j++) {
 			int dof = (nodeID - 1) * (*DOF) + (m->GetMassVector()[j][0] - 1);
-			int val = Support::NumberOfDOFBeforeDOF(&dof, structManager->Supports());
+			int val = Support::NumberOfDOFBeforeDOF(&dof, structManager->Supports(), DOF);
 			shellMass->GetMatrixDouble()[dof - val][dof - val] += m->GetMassVector()[j][1];
 		}
 		it++;

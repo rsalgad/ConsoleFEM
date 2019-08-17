@@ -1,6 +1,7 @@
 #pragma once
-#include "MaterialModel.h"
+//#include "pch.h"
 #include <string>
+#include <vector>
 
 class OrthotropicElasticMaterial : public MaterialModel
 {
@@ -17,7 +18,7 @@ public:
 	double GetPoissonXY();
 	std::string GetType() override;
 	std::string ToString() override;
-	static OrthotropicElasticMaterial FindElasticMaterialByID(std::vector<OrthotropicElasticMaterial> listOfShellMaterials, int ID);
+	static OrthotropicElasticMaterial* FindElasticMaterialByID(const std::map<int, MaterialModel*>* listOfMaterials, int ID);
 	~OrthotropicElasticMaterial();
 
 private:

@@ -1,6 +1,4 @@
 #include "pch.h"
-#include "SpringGeneralModel.h"
-#include <math.h>
 
 // This Material Model is said to be "General" because it is assumed that both shear and out-of-plane will have similar shapes and parameters
 SpringGeneralModel::SpringGeneralModel(int ID, double iniStiff, double dMax, double fMax, double degStiff, double fRes, double dUlt, double unlStiff, double fUnl, double conStiff, double relStiff)

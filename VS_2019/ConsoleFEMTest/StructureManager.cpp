@@ -1,8 +1,5 @@
 #include "pch.h"
-#include "StructureManager.h"
-#include "Node.h"
-#include "ShellElement.h"
-#include "Spring3D.h"
+
 
 StructureManager::StructureManager()
 {
@@ -13,7 +10,7 @@ StructureManager::~StructureManager()
 }
 
 void StructureManager::AddNode(Node* node) {
-	_strucNodes.insert(std::make_pair(node->GetID(), node));
+	_strucNodes.insert(std::make_pair(*node->GetID(), node));
 }
 
 //the first 'const' means the returned map is constant (can't be changed)
@@ -38,7 +35,7 @@ Node* StructureManager::FindNodeByCoordinates(double x, double y, double z) {
 	std::map<int, Node*>::iterator it = _strucNodes.begin();
 	while (it != _strucNodes.end())
 	{
-		if (it->second->GetX() == x && it->second->GetY() == y && it->second->GetZ() == z)
+		if (*it->second->GetX() == x && *it->second->GetY() == y && *it->second->GetZ() == z)
 			return it->second;
 		it++;
 	}
@@ -149,19 +146,34 @@ void StructureManager::PrintMasses()
 	}
 }
 
-void StructureManager::CalculateShellsGlobalDOFVector() {
-	if (_strucShells.size() != 0) {
-		for (int i = 0; i < _strucShells.size(); i++) {
-			_strucShells[i]->CalculateGlobalDOFVector(_strucSupports);
-			_strucShells[i]->CalculateGlobalMassDOFVector(_strucMasses, _strucSupports);
+Support* StructureManager::FindSupportByNodeID(int nodeID) const {
+	std::map<int, Support*>::const_iterator it = _strucSupports.begin();
+	while (it != _strucSupports.end()) {
+		if (it->second->GetNode() == nodeID) {
+			return it->second;
 		}
+		it++;
 	}
+	return nullptr;
 }
 
-void StructureManager::CalculateSpringsGlobalDOFVector() {
-	if (_strucSprings.size() != 0) {
-		for (int i = 0; i < _strucSprings.size(); i++) {
-			_strucSprings[i]->CalculateGlobalDOFVector(_strucSupports);
-		}
+void StructureManager::SortSupportsByNodeID()
+{
+	std::map<int, Support*>::const_iterator it = _strucSupports.begin();
+	std::map<int, Support*> newMap;
+	std::vector<int> IDs;
+	IDs.reserve(_strucSupports.size());
+	while (it != _strucSupports.end()) {
+		IDs.push_back(it->second->GetNode());
+		it++;
 	}
+
+	std::sort(IDs.begin(), IDs.end());
+
+	for (int i = 0; i < IDs.size(); i++) {
+		newMap.insert(std::pair<int, Support*>(i+1, FindSupportByNodeID(IDs[i])));
+	}
+
+	_strucSupports = newMap;
+
 }

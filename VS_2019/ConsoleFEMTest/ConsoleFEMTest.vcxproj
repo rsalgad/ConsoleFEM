@@ -159,6 +159,7 @@
     <ClInclude Include="CyclicAnalysis.h" />
     <ClInclude Include="Displacement.h" />
     <ClInclude Include="DynamicAnalysis.h" />
+    <ClInclude Include="DynamicLoad.h" />
     <ClInclude Include="ElasticAnalysis.h" />
     <ClInclude Include="ElasticMaterial.h" />
     <ClInclude Include="Element.h" />
@@ -198,6 +199,7 @@
     <ClCompile Include="CyclicAnalysis.cpp" />
     <ClCompile Include="Displacement.cpp" />
     <ClCompile Include="DynamicAnalysis.cpp" />
+    <ClCompile Include="DynamicLoad.cpp" />
     <ClCompile Include="ElasticAnalysis.cpp" />
     <ClCompile Include="ElasticMaterial.cpp" />
     <ClCompile Include="Element.cpp" />
@@ -219,7 +221,7 @@
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Create</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="PreAnalysisSetUp.cpp" />
-    <ClCompile Include="NodeRecorder.cpp" />
+    <ClCompile Include="NodalRecorder.cpp" />
     <ClCompile Include="ReverseCyclic.cpp" />
     <ClCompile Include="SeismicLoad.cpp" />
     <ClCompile Include="ShellElement.cpp" />

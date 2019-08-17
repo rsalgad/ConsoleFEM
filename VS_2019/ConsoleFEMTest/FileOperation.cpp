@@ -1,21 +1,11 @@
 #include "pch.h"
 #include "FileOperation.h"
+#include "MonotonicAnalysis.h"
+#include "CyclicAnalysis.h"
+#include "ReverseCyclic.h"
+#include "DynamicAnalysis.h"
 #include "tinyxml2.h"
-#include "MaterialModel.h"
-#include "ElasticMaterial.h"
-#include "SpringAxialModel.h"
-#include "SpringGeneralModel.h"
-#include "Load.h"
-#include "Mass.h"
-#include "Support.h"
-#include "SeismicLoad.h"
-#include "ImpulseLoad.h"
-#include "Node.h"
-#include "ShellElement.h"
-#include "Spring3D.h"
-#include "OrthotropicElasticMaterial.h"
-#include "StructureManager.h"
-#include "NodalRecorder.h"
+#include <map>
 #include <fstream>
 
 using namespace tinyxml2;
@@ -28,6 +18,7 @@ FileOperation::FileOperation()
 FileOperation::~FileOperation()
 {
 }
+
 
 void FileOperation::SaveResultsFile(std::string &fileName, std::vector<std::vector<Node>> &nodePerStep, std::vector<Node> &listOfNodes, std::vector<Matrix> &forcePerStep, std::vector<double> &natFreq, Matrix &modeShape) {
 
@@ -117,18 +108,8 @@ void FileOperation::SaveResultsFile(std::string &fileName, std::vector<std::vect
 	doc->SaveFile(file.c_str());
 }
 
-void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialModel*> &listOfMaterials,
-	std::vector<OrthotropicElasticMaterial> &listOfShellMaterials,
-	std::vector<SpringAxialModel> &listOfSpringAxialMat,
-	std::vector<SpringGeneralModel> &listOfSpringGeneralMat,
-	std::vector<Load> &listOfLoads,
-	std::vector<Support> &listOfSupports,
-	std::vector<Node> &listOfNodes,
-	std::vector<ShellElement> &listOfShellElements,
-	std::vector<Spring3D> &listOfSpringElements,
-	std::vector<Mass> &listOfMasses,
-	SeismicLoad &sLoad, ImpulseLoad &impLoad,
-	StructureManager &structManager) {
+
+void FileOperation::ReadInputFromXML(std::string fileName, StructureManager& structManager, AnalysisMethod* *analysis) {
 
 	int matTotal, loadTotal, supTotal, eleTotal, nodeTotal, springTotal, massTotal, seismicTotal, impulseTotal, impulseNodeTotal;
 
@@ -139,7 +120,7 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 	tinyxml2::XMLNode* root = doc.FirstChildElement("structure"); //find the root of the xml file
 	tinyxml2::XMLElement* element = root->FirstChildElement("materials"); //finds the next 'child' element, which is the <materials> tag
 	element->QueryIntAttribute("total", &matTotal); //finds the attribute of the tag, i.e., the number in between tags eg. <tag> atribute </tag>
-	listOfMaterials.reserve(matTotal);
+
 	element = element->FirstChildElement("material"); //finds the next 'child' element, which is the <material> tag
 	for (int i = 0; i < matTotal; i++) { //loops through the amount of materials we have
 		const char* type;
@@ -154,7 +135,6 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element->QueryIntText(&ID); //gets the attribute in between tags.
 			ElasticMaterial* mat = new ElasticMaterial(ID, E, v);
 			structManager.AddMaterial(mat);
-			listOfShellMaterials.emplace_back(ID, E, v); //add to the list of materials
 		}
 		else if (strcmp("OrthoElastic", type) == 0) {
 			double Ex, Ey, vxy, Gxy, Gyz, Gxz;
@@ -167,7 +147,6 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element->QueryIntText(&ID); //gets the attribute in between tags.
 			OrthotropicElasticMaterial* mat = new OrthotropicElasticMaterial(ID, Ex, Ey, vxy, Gxy, Gyz, Gxz);
 			structManager.AddMaterial(mat);
-			listOfShellMaterials.emplace_back(ID, Ex, Ey, vxy, Gxy, Gyz, Gxz); //add to the list of materials
 		}
 		else if (strcmp("Spring-Axial", type) == 0) {
 			double iniStiff, fMax, dMax, degStiff, fRes, dUlt, compStiff, unlStiff, fUnl, conStiff, relStiff;
@@ -185,8 +164,6 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element->QueryIntText(&ID); //gets the attribute in between tags.
 			SpringAxialModel* mat = new SpringAxialModel(ID, iniStiff, dMax, fMax, degStiff, fRes, dUlt, compStiff, unlStiff, fUnl, conStiff, relStiff);
 			structManager.AddMaterial(mat);
-			listOfSpringAxialMat.emplace_back(ID, iniStiff, dMax, fMax, degStiff, fRes, dUlt, compStiff, unlStiff, fUnl, conStiff, relStiff);
-			//listOfMaterials.push_back(&listOfSpringAxialMat[listOfSpringAxialMat.size() - 1]); //add to the list of materials
 		}
 		else {
 			double iniStiff, fMax, dMax, degStiff, fRes, dUlt, unlStiff, fUnl, conStiff, relStiff;
@@ -203,22 +180,12 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element->QueryIntText(&ID); //gets the attribute in between tags.
 			SpringGeneralModel* mat = new SpringGeneralModel(ID, iniStiff, dMax, fMax, degStiff, fRes, dUlt, unlStiff, fUnl, conStiff, relStiff);
 			structManager.AddMaterial(mat);
-			listOfSpringGeneralMat.emplace_back(ID, iniStiff, dMax, fMax, degStiff, fRes, dUlt, unlStiff, fUnl, conStiff, relStiff);
-			//listOfMaterials.push_back(&listOfSpringGeneralMat[listOfSpringGeneralMat.size() - 1]); //add to the list of materials
 		}
 		element = element->NextSiblingElement("material");
 	}
 
-	for (int i = 0; i < listOfSpringAxialMat.size(); i++) {
-		listOfMaterials.push_back(&listOfSpringAxialMat[i]); //add to the list of materials
-	}
-	for (int i = 0; i < listOfSpringGeneralMat.size(); i++) {
-		listOfMaterials.push_back(&listOfSpringGeneralMat[i]); //add to the list of materials
-	}
-
 	element = root->FirstChildElement("loads");
 	element->QueryIntAttribute("total", &loadTotal); //finds the attribute of the tag, i.e., the number in between tags eg. <tag> atribute </tag>
-	listOfLoads.reserve(loadTotal);
 	element = element->FirstChildElement("load"); //finds the next 'child' element, which is the <material> tag
 	for (int i = 0; i < loadTotal; i++) { //loops through the amount of loads we have
 		int ID, nodeID, vals;
@@ -243,9 +210,9 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		Load* load = new Load(ID, nodeID, _status);
 		load->SetLoadVector(loadVector);
 		structManager.AddLoad(load);
-		Load l(ID, nodeID, _status);
-		l.SetLoadVector(loadVector);
-		listOfLoads.emplace_back(l); //add to the list of loads
+		if (_status != "seismic" || _status != "impulse") {
+			*analysis = new MonotonicAnalysis(10, 100, 0.0001);;
+		}
 
 		element = root->FirstChildElement("loads")->FirstChildElement("load");
 		for (int k = 0; k < i + 1; k++) {
@@ -256,7 +223,6 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 	if (root->FirstChildElement("masses") != 0) {
 		element = root->FirstChildElement("masses");
 		element->QueryIntAttribute("total", &massTotal); //finds the attribute of the tag, i.e., the number in between tags eg. <tag> atribute </tag>
-		listOfMasses.reserve(massTotal);
 		element = element->FirstChildElement("mass"); //finds the next 'child' element, which is the <material> tag
 		for (int i = 0; i < massTotal; i++) { //loops through the amount of masses we have
 			int ID, nodeID, vals;
@@ -278,9 +244,6 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			Mass* m = new Mass(ID, nodeID);
 			m->SetMassVector(massVector);
 			structManager.AddMass(m);
-			Mass mass(ID, nodeID);
-			mass.SetMassVector(massVector);
-			listOfMasses.emplace_back(mass); //add to the list of masses
 
 			element = root->FirstChildElement("masses")->FirstChildElement("mass");
 			for (int k = 0; k < i + 1; k++) {
@@ -291,7 +254,6 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 
 	element = root->FirstChildElement("boundaries");
 	element->QueryIntAttribute("total", &supTotal); //finds the attribute of the tag, i.e., the number in between tags eg. <tag> atribute </tag>
-	listOfSupports.reserve(supTotal);
 	element = element->FirstChildElement("boundary"); //finds the next 'child' element, which is the <material> tag
 	for (int i = 0; i < supTotal; i++) { //loops through the amount of loads we have
 		double val, dir;
@@ -315,7 +277,6 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		structManager.AddSupport(s);
 		Support sup(ID, nodeID);
 		sup.SetSupportVector(supVector);
-		listOfSupports.emplace_back(sup); //add to the list of loads
 
 		element = root->FirstChildElement("boundaries")->FirstChildElement("boundary");
 		for (int k = 0; k < i + 1; k++) {
@@ -325,7 +286,6 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 
 	element = root->FirstChildElement("nodes");
 	element->QueryIntAttribute("total", &nodeTotal);
-	listOfNodes.reserve(nodeTotal);
 	element = element->FirstChildElement("node");
 	for (int i = 0; i < nodeTotal; i++) { //loop through every node
 		double x, y, z;
@@ -336,13 +296,11 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		element->QueryIntText(&ID);
 		Node* n = new Node(ID, x, y, z);
 		structManager.AddNode(n);
-		listOfNodes.emplace_back(ID, x, y, z); //add to the list of nodes
 		element = element->NextSiblingElement("node");
 	}
 
 	element = root->FirstChildElement("shell");
 	element->QueryIntAttribute("total", &eleTotal);
-	listOfShellElements.reserve(eleTotal);
 	element = element->FirstChildElement("element");
 	for (int i = 0; i < eleTotal; i++) { //loops through every element
 		int n1, n2, n3, n4, n5, n6, n7, n8, n9, matID, ID;
@@ -362,16 +320,14 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		element->QueryIntAttribute("N9", &n9);
 		element->QueryIntText(&ID);
 		std::vector<OrthotropicElasticMaterial> vecMat;
-		vecMat.push_back(OrthotropicElasticMaterial::FindElasticMaterialByID(listOfShellMaterials, matID));
-		ShellElement* shell = new ShellElement(ID, structManager.Nodes()[n1 - 1], structManager.Nodes()[n2 - 1], structManager.Nodes()[n3 - 1], structManager.Nodes()[n4 - 1], structManager.Nodes()[n5 - 1], structManager.Nodes()[n6 - 1], structManager.Nodes()[n7 - 1], structManager.Nodes()[n8 - 1], structManager.Nodes()[n9 - 1], thick, layers, vecMat);
+		vecMat.push_back(*OrthotropicElasticMaterial::FindElasticMaterialByID(structManager.Materials(), matID));
+		ShellElement* shell = new ShellElement(ID, structManager.Nodes()->find(n1)->second, structManager.Nodes()->find(n2)->second, structManager.Nodes()->find(n3)->second, structManager.Nodes()->find(n4)->second, structManager.Nodes()->find(n5)->second, structManager.Nodes()->find(n6)->second, structManager.Nodes()->find(n7)->second, structManager.Nodes()->find(n8)->second, structManager.Nodes()->find(n9)->second, thick, layers, vecMat);
 		structManager.AddShellElement(shell);
-		listOfShellElements.emplace_back(ID, &listOfNodes[n1 - 1], &listOfNodes[n2 - 1], &listOfNodes[n3 - 1], &listOfNodes[n4 - 1], &listOfNodes[n5 - 1], &listOfNodes[n6 - 1], &listOfNodes[n7 - 1], &listOfNodes[n8 - 1], &listOfNodes[n9 - 1], thick, layers, vecMat);
 		element = element->NextSiblingElement("element");
 	}
 
 	element = root->FirstChildElement("spring3D");
 	element->QueryIntAttribute("total", &springTotal);
-	listOfSpringElements.reserve(springTotal);
 	element = element->FirstChildElement("element");
 	for (int i = 0; i < springTotal; i++) { //loops through every element
 		int n1, n2, matIDX, matIDY, matIDZ, ID;
@@ -387,12 +343,14 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		element->QueryIntText(&ID);
 
 		std::vector<SpringMaterialModels*> vecMat;
-		vecMat.push_back(SpringMaterialModels::FindSpringMaterialByID(listOfMaterials, matIDX));
-		vecMat.push_back(SpringMaterialModels::FindSpringMaterialByID(listOfMaterials, matIDY));
-		vecMat.push_back(SpringMaterialModels::FindSpringMaterialByID(listOfMaterials, matIDZ));
-		Spring3D* spring = new Spring3D(ID, structManager.Nodes()[n1 - 1], structManager.Nodes()[n2 - 1], vecMat, xDir[0], yDir[0]);
+		SpringMaterialModels* matX = static_cast<SpringMaterialModels*>(structManager.Materials()->find(matIDX)->second);
+		SpringMaterialModels* matY = static_cast<SpringMaterialModels*>(structManager.Materials()->find(matIDY)->second);
+		SpringMaterialModels* matZ = static_cast<SpringMaterialModels*>(structManager.Materials()->find(matIDZ)->second);
+		vecMat.push_back(matX);
+		vecMat.push_back(matY);
+		vecMat.push_back(matZ);
+		Spring3D* spring = new Spring3D(ID, structManager.Nodes()->find(n1)->second, structManager.Nodes()->find(n2)->second, vecMat, xDir[0], yDir[0]);
 		structManager.AddSpringElement(spring);
-		listOfSpringElements.emplace_back(ID, &listOfNodes[n1 - 1], &listOfNodes[n2 - 1], vecMat, xDir[0], yDir[0]);
 		element = element->NextSiblingElement("element");
 	}
 
@@ -406,6 +364,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		std::vector<double> recordsY;
 		std::vector<double> recordsZ;
 		std::vector<double> timeVec;
+
+		SeismicLoad* sLoad = new SeismicLoad();
 
 		for (int i = 0; i < seismicTotal; i++) { //loops through the amount of loads we have
 			double time, x, y, z;
@@ -427,18 +387,19 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element = element->NextSiblingElement("data-point");
 		}
 		if (timeVec.size() != 0) {
-			sLoad.SetTime(timeVec);
+			sLoad->SetTime(timeVec);
 
 			if (recordsX.size() != 0) {
-				sLoad.SetRecordX(recordsX);
+				sLoad->SetRecordX(recordsX);
 			}
 			if (recordsY.size() != 0) {
-				sLoad.SetRecordY(recordsY);
+				sLoad->SetRecordY(recordsY);
 			}
 			if (recordsZ.size() != 0) {
-				sLoad.SetRecordZ(recordsZ);
+				sLoad->SetRecordZ(recordsZ);
 			}
 		}
+		*analysis = new DynamicAnalysis(timeVec[timeVec.size() - 1], 0.005, AnalysisTypes::Seismic, IntegrationMethod::AverageNewmark, sLoad, 100, 0.0001);
 	}
 
 	element = root->FirstChildElement("impulse");
@@ -447,6 +408,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 		element = element->FirstChildElement("data-point"); //finds the next 'child' element, which is the <material> tag
 
 		std::vector<std::vector<double>> points;
+
+		ImpulseLoad* impLoad = new ImpulseLoad();
 
 		for (int i = 0; i < impulseTotal; i++) { //loops through the amount of loads we have
 			double time, force;
@@ -460,16 +423,20 @@ void FileOperation::ReadInputFromXML(std::string fileName, std::vector<MaterialM
 			element = element->NextSiblingElement("data-point");
 		}
 
-		impLoad.SetPoints(points);
+		impLoad->SetPoints(points);
+		
+		*analysis = new DynamicAnalysis(points[points.size() - 1][0], 0.005, AnalysisTypes::Impulse, IntegrationMethod::AverageNewmark, impLoad, 100, 0.0001);
+
 	}
 }
 
-void FileOperation::SaveIterationsResult(std::string fileName, const NodalRecorder<Node*>* disps, const std::map<int, Node*>* nodes) {
+/*
+void FileOperation::SaveIterationsResult(std::string fileName, const NodalRecorder<Node>* disps, const std::map<int, Node*>* nodes) {
 	
 	std::ofstream myfile;
-	std::map<int, std::map<int, Node*>>::const_iterator it = disps->GetRecord().begin();
+	std::map<int, std::map<int, Node*>>::const_iterator it = disps->GetRecord()->begin();
 
-	while (it != disps->GetRecord().end()) { //number of records that were recorded
+	while (it != disps->GetRecord()->end()) { //number of records that were recorded
 		//error handling IO file
 		myfile.open(fileName + std::to_string(it->first) + ".txt");
 
@@ -483,6 +450,7 @@ void FileOperation::SaveIterationsResult(std::string fileName, const NodalRecord
 	}
 	myfile.close();
 }
+*/
 
 //I'm pretty sure this function is not used anymore
 /*

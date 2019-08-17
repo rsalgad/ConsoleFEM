@@ -1,8 +1,4 @@
 #include "pch.h"
-#include "ElasticMaterial.h"
-#include <vector>
-#include <string>
-
 
 ElasticMaterial::ElasticMaterial()
 {

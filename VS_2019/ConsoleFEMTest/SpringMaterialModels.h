@@ -22,7 +22,7 @@ public:
 	virtual double GetPlasticDisplacement(double disp, double maxD, double minD, std::string prevStage, std::string stage, double minUnlDisp, double maxRelDisp) = 0;
 	static SpringMaterialModels* FindSpringMaterialByID(std::vector<MaterialModel*> listOfMaterials, int ID);
 	virtual double GetInitialStiffness() = 0;
-	virtual void UpdateUnlAndRelDisps(std::string stage, std::string prevStage, double disp, double& maxD, double& minD, double& unlDisp, double& relDisp, double prevUnlDisp, double prevRelDisp) = 0;
+	virtual void UpdateUnlAndRelDisps(std::string stage, std::string prevStage, double disp, double*& maxD, double*& minD, double*& unlDisp, double*& relDisp, double prevUnlDisp, double prevRelDisp) = 0;
 
 	~SpringMaterialModels();
 };

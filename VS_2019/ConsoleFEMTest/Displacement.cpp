@@ -124,15 +124,14 @@ void Displacement::UpdatePositionVectorsOfSprings(Matrix* newDisp, const std::ma
 
 		std::vector<double*> newList;
 		newList.reserve(3);
-		{
-			double* d1 = new double(newDisp->GetMatrixDouble()[(*spring->GetNode2().GetID() - 1) * (*DOF)][0]);
-			double* d2 = new double(newDisp->GetMatrixDouble()[(*spring->GetNode2().GetID() - 1) * (*DOF) + 1][0]);
-			double* d3 = new double(newDisp->GetMatrixDouble()[(*spring->GetNode2().GetID() - 1) * (*DOF) + 2][0]);
+		double* d1 = new double(newDisp->GetMatrixDouble()[(*spring->GetNode2().GetID() - 1) * (*DOF)][0]);
+		double* d2 = new double(newDisp->GetMatrixDouble()[(*spring->GetNode2().GetID() - 1) * (*DOF) + 1][0]);
+		double* d3 = new double(newDisp->GetMatrixDouble()[(*spring->GetNode2().GetID() - 1) * (*DOF) + 2][0]);
 
-			newList.emplace_back(d1); //x
-			newList.emplace_back(d2);
-			newList.emplace_back(d3);
-		}
+		newList.emplace_back(d1); //x
+		newList.emplace_back(d2);
+		newList.emplace_back(d3);
+
 		//make the current 'new' spring pos as the 'old' pos.
 		springRecorder->SwapOldNewVectors(springID);
 
@@ -169,10 +168,10 @@ void Displacement::UpdatePositionVectorsOfSprings(Matrix* newDisp, const std::ma
 			spring->GetListOfMaterials()[matPos[j]]->UpdateUnlAndRelDisps(*(*springRecorder->GetNewStages())[i][j],
 				*(*springRecorder->GetListStages())[i][j],
 				*newList[j],
-				*(*springRecorder->GetNewMaxDisp())[i][j],
-				*(*springRecorder->GetNewMinDisp())[i][j],
-				*(*springRecorder->GetNewUnlDisp())[i][j],
-				*(*springRecorder->GetNewRelDisp())[i][j],
+				(*springRecorder->GetNewMaxDisp())[i][j],
+				(*springRecorder->GetNewMinDisp())[i][j],
+				(*springRecorder->GetNewUnlDisp())[i][j],
+				(*springRecorder->GetNewRelDisp())[i][j],
 				*(*springRecorder->GetUnlDispIter())[i][j],
 				*(*springRecorder->GetRelDispIter())[i][j]);
 

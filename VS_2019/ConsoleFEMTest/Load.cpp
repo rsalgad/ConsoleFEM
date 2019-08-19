@@ -120,7 +120,7 @@ void Load::SetMz(double val) {
 	_load.push_back(vec);
 }
 
-std::vector<std::vector<double>> Load::GetLoadVector() {
+std::vector<std::vector<double>> Load::GetLoadVector() const {
 	return _load;
 }
 
@@ -226,12 +226,12 @@ Matrix Load::AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Supp
 	return Matrix(complete, size, 1);
 }
 
-Matrix Load::GetReducedLoadMatrix(const Matrix* loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF) {
+Matrix Load::GetReducedLoadMatrix(const Matrix& loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF) {
 	// Returns the load matrix minus the rows associated with support conditions.
 	// The vector of loads MUST be already sorted when it is passed.
 
 	int remove = 0; //keeps track of the amount of loads that were removed from the matrix
-	Matrix reduced(MatrixOperation::CopyMatrixDouble(*loadMatrix), loadMatrix->GetDimX(), loadMatrix->GetDimY());
+	Matrix reduced(MatrixOperation::CopyMatrixDouble(loadMatrix), loadMatrix.GetDimX(), loadMatrix.GetDimY());
 	
 	std::map<int, Support*>::const_iterator it = mapSup->begin();
 	
@@ -296,22 +296,22 @@ Matrix Load::MultiplyIncrementalTerms(Matrix &redLoadMatrix, std::vector<int> &i
 }
 */
 
-Matrix Load::GetTotalForceNotOrganized(const Matrix* force, const Matrix* react, const StructureManager* structManager, const int* stiffSize) {
+Matrix Load::GetTotalForceNotOrganized(Matrix& force, Matrix& react, const StructureManager* structManager, const int* stiffSize) {
 	Matrix d(*stiffSize, 1);
 
-	for (int i = 0; i < force->GetDimX(); i++) {
-		d.GetMatrixDouble()[i][0] = force->GetMatrixDouble()[i][0];
+	for (int i = 0; i < force.GetDimX(); i++) {
+		d.GetMatrixDouble()[i][0] = force.GetMatrixDouble()[i][0];
 	}
 
 	
-	for (int i = 0; i < d.GetDimX() - force->GetDimX(); i++) {
-		d.GetMatrixDouble()[force->GetDimX() + i][0] = react->GetMatrixDouble()[i][0];
+	for (int i = 0; i < d.GetDimX() - force.GetDimX(); i++) {
+		d.GetMatrixDouble()[force.GetDimX() + i][0] = react.GetMatrixDouble()[i][0];
 	}
 	
 	return d;
 }
 
-Matrix Load::GetTotalForceMatrix(const Matrix* force,const Matrix* react, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const double* biggest, const double* loadFraction) {
+Matrix Load::GetTotalForceMatrix(Matrix& force,Matrix& react, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const double* biggest, const double* loadFraction) {
 	//This function returns the full displacement vector from the reduced version
 	Matrix m = GetTotalForceNotOrganized(force, react, structManager, setUp->StiffMatrixSize());
 	double** disp = Matrix::CreateMatrixDouble(*setUp->StiffMatrixSize(), 1);
@@ -440,34 +440,32 @@ double Load::SampleDynamicForceFunction(double amplitude, double period, double 
 	return amplitude * sin(period * t + phase);
 }
 
-std::map<int, Load*> Load::GetNewLoads(const std::map<int, Load*>* oriMap, const Matrix* totalForce, const int* DOF)
+std::map<int, Load> Load::GetNewLoads(const std::vector<int>* vec, Matrix& totalForce, const int* DOF)
 {
-	std::map<int, Load*> newMap;
-	std::map<int, Load*>::const_iterator it = oriMap->begin();
+	std::map<int, Load> newMap;
 	int count = 1;
-	while (it != oriMap->end()) { //for each node we have in the problem
-		int nodeID = it->second->GetNode();
+	for (int i = 0; i < vec->size(); i++) { //for each node we have in the problem
+		int nodeID = (*vec)[i];
 		Matrix forces = GetForceByNodeID(&nodeID, totalForce, DOF);
-		Load* l = new Load(it->second->GetID(), nodeID);
-		l->SetFx(forces.GetMatrixDouble()[0][0]);
-		l->SetFy(forces.GetMatrixDouble()[1][0]);
-		l->SetFz(forces.GetMatrixDouble()[2][0]);
-		l->SetMx(forces.GetMatrixDouble()[3][0]);
-		l->SetMy(forces.GetMatrixDouble()[4][0]);
-		l->SetMz(forces.GetMatrixDouble()[5][0]);
-		newMap.insert(std::pair<int, Load*>(it->first, l));
+		Load l(i + 1, nodeID);
+		l.SetFx(forces.GetMatrixDouble()[0][0]);
+		l.SetFy(forces.GetMatrixDouble()[1][0]);
+		l.SetFz(forces.GetMatrixDouble()[2][0]);
+		l.SetMx(forces.GetMatrixDouble()[3][0]);
+		l.SetMy(forces.GetMatrixDouble()[4][0]);
+		l.SetMz(forces.GetMatrixDouble()[5][0]);
+		newMap.insert(std::pair<int, Load>(i + 1, l));
 		count++;
-		it++;
 	}
 	return newMap;
 }
 
-Matrix Load::GetForceByNodeID(int const* ID, const Matrix* totalForceMatrix, const int* DOF)
+Matrix Load::GetForceByNodeID(int const* ID, Matrix& totalForceMatrix, const int* DOF)
 {
 	Matrix m(*DOF, 1);
 
 	for (int i = 0; i < *DOF; i++) {
-		m.GetMatrixDouble()[i][0] = totalForceMatrix->GetMatrixDouble()[(*ID - 1) * (*DOF) + i][0];
+		m.GetMatrixDouble()[i][0] = totalForceMatrix.GetMatrixDouble()[(*ID - 1) * (*DOF) + i][0];
 	}
 	return m;
 }

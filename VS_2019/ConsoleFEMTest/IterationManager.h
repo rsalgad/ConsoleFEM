@@ -31,7 +31,7 @@ private:
 		Matrix& F_iter, double highStiff, std::vector<Matrix> &forcePerStep, std::vector<Matrix> &velPerStep, std::vector<Matrix> &accPerStep, Matrix &curVel, Matrix &acc, std::vector<std::vector<double>> &maxDispPerIter,
 		std::vector<std::vector<double>> &minDispPerIter, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp, Matrix &prevDisp, Matrix &prevVel, Matrix &prevAcc);
 	*/
-	static void CalculateAccelerationAndVelocity(const StructureManager* structManager, const PreAnalysisSetUp* setUp, Matrix* dNew, const std::vector<std::vector<int>>* totalMassDOFVec, const Matrix* redPrevDisp, const Matrix* redVel,
-		const Matrix* redAcc, const Matrix* prevAcc, Matrix* acc, Matrix* curVel, const Matrix* prevVel, Matrix* completeD_prime);
+	static void CalculateAccelerationAndVelocity(const StructureManager* structManager, const PreAnalysisSetUp* setUp, Matrix& dNew, const std::vector<std::vector<int>>* totalMassDOFVec, Matrix& redPrevDisp, Matrix& redVel,
+		Matrix& redAcc, Matrix& prevAcc, Matrix& acc, Matrix& curVel, Matrix& prevVel, Matrix& completeD_prime);
 	static bool CheckConvergenceCriteria(Matrix &D, double limit);
 };

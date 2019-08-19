@@ -865,16 +865,16 @@ void MatrixOperation::PopulateDiagonalOnly(std::vector<double>& terms, Matrix &m
 }
 
 //toFill and filler must have the same dimensions
-Matrix MatrixOperation::FillMatrixBasedOnOtherMatrix(const Matrix* toFill, const Matrix* filler) {
-	Matrix m(toFill->GetDimX(), toFill->GetDimY());
+Matrix MatrixOperation::FillMatrixBasedOnOtherMatrix(Matrix& toFill, Matrix& filler) {
+	Matrix m(toFill.GetDimX(), toFill.GetDimY());
 
 	for (int i = 0; i < m.GetDimX(); i++) {
 		for (int j = 0; j < m.GetDimY(); j++) {
-			if (toFill->GetMatrixDouble()[i][j] == 0) {
-				m.GetMatrixDouble()[i][j] = filler->GetMatrixDouble()[i][j];
+			if (toFill.GetMatrixDouble()[i][j] == 0) {
+				m.GetMatrixDouble()[i][j] = filler.GetMatrixDouble()[i][j];
 			}
 			else {
-				m.GetMatrixDouble()[i][j] = toFill->GetMatrixDouble()[i][j];
+				m.GetMatrixDouble()[i][j] = toFill.GetMatrixDouble()[i][j];
 			}
 		}
 	}

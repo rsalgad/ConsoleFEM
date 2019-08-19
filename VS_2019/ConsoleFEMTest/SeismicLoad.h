@@ -20,7 +20,7 @@ public:
 	int GetIndexOfDirection(char dir) const;
 	std::string GetType() override;
 
-	static Matrix GetSeismicLoadVector(const SeismicLoad* sLoad, const Matrix* FInc, const double* t);
+	static Matrix GetSeismicLoadVector(const SeismicLoad& sLoad, Matrix& FInc, const double* t);
 	
 	~SeismicLoad();
 

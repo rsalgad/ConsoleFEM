@@ -115,6 +115,11 @@ double** Matrix::GetMatrixDouble() const {
 	return _matrix;
 }
 
+double** Matrix::MatrixDouble()
+{
+	return _matrix;
+}
+
 //<summary> Changes the double** of values of a matrix by the specified double** </summary> 
 //<matrix> The double** that will replace the matrix original double** </matrix> 
 void Matrix::SetMatrixDouble(double** matrix) {

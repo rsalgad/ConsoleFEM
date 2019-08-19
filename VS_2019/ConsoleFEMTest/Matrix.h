@@ -20,6 +20,7 @@ public:
 	Matrix operator *(int const &n) const;
 	void operator =(Matrix const &m2);
 	double** GetMatrixDouble() const; //could make this const (read-only) and create another function like "ModifyMatrixDouble" that can actually change the values of double**
+	double** MatrixDouble();
 	void SetMatrixDouble(double** matrix);
 	void DestroyMatrixDouble();
 	int GetDimX() const;

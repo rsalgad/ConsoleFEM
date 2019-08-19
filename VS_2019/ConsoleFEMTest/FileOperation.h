@@ -25,8 +25,9 @@ public:
 	FileOperation();
 	static void ReadInputFromXML(std::string fileName, StructureManager& structManager, AnalysisMethod* *analysis);
 	static void SaveIterationsResult(std::string fileName, const NodalRecorder<Node>* disps, const std::map<int, Node*>* nodes);
+	static void SaveResultsFile(std::string& fileName, const StructureManager* structManager, const NodalRecorder<Node>* dispRecorder, const NodalRecorder<Load>* forceRecorder);
 	//static void SaveIterationsForceResult(std::string fileName, const std::map<int, Load*>* result);
-	static void SaveResultsFile(std::string &fileName, std::vector<std::vector<Node>> &nodePerStep, std::vector<Node> &listOfNodes, std::vector<Matrix> &forcePerStep, std::vector<double> &natFreq, Matrix &modeShape);
+	static void SaveResultsFile(std::string& fileName, const StructureManager* structManager, const NodalRecorder<Node>* dispRecorder, const NodalRecorder<Load>* forceRecorder, std::vector<double>& natFreq, Matrix& modeShape);
 	~FileOperation();
 };
 

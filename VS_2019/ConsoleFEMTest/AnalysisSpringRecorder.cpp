@@ -30,250 +30,148 @@ AnalysisSpringRecorder::~AnalysisSpringRecorder()
 {
 }
 
-void AnalysisSpringRecorder::SetDisplacementValues(std::string type, std::string status, int springID, std::vector<double*> newDisps)
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetNewDisp()
 {
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::iterator it = _disps.find(type);
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it2 = it->second.find(status);
-	std::map<int, std::vector<double*>>::iterator it3 = it2->second.find(springID);
-	if (it3 != it2->second.end()) {
-		it3->second = newDisps;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
+	return &_newDisp;
 }
 
-void AnalysisSpringRecorder::SetIndividualDisplacementValues(std::string type, std::string status, int springID, int pos, double* val)
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetOldDisp()
 {
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::iterator it = _disps.find(type);
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it2 = it->second.find(status);
-	std::map<int, std::vector<double*>>::iterator it3 = it2->second.find(springID);
-	if (it3 != it2->second.end()) {
-		it3->second[pos] = val;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
+	return &_oldDisp;
 }
 
-void AnalysisSpringRecorder::SwapOldNewDisps(std::string type, int springID)
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetNewMinDisp()
 {
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::iterator it = _disps.find(type);
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it2 = it->second.find("old");
-	std::map<int, std::vector<double*>>::iterator it3 = it2->second.find(springID);
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it4 = it->second.find("new");
-	std::map<int, std::vector<double*>>::iterator it5 = it4->second.find(springID);
-	if (it3 != it2->second.end()) {
-		it3->second = it5->second;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
+	return&_newMinDisp;
 }
 
-void AnalysisSpringRecorder::SwapOldNewStages(int springID)
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetOldMinDisp()
 {
-	std::map<std::string, std::map<int, std::vector<std::string*>>>::iterator it = _stages.find("old");
-	std::map<int, std::vector<std::string*>>::iterator it2 = it->second.find(springID);
-	std::map<std::string, std::map<int, std::vector<std::string*>>>::iterator it3 = _stages.find("new");
-	std::map<int, std::vector<std::string*>>::iterator it4 = it3->second.find(springID);
-	if (it2 != it->second.end()) {
-		it2->second = it4->second;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
-	
+	return &_oldMinDisp;
 }
 
-std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>> AnalysisSpringRecorder::GetDisplacementMap() const
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetNewMaxDisp()
 {
-	return _disps;
+	return &_newMaxDisp;
 }
 
-double* AnalysisSpringRecorder::GetDisplacement(std::string type, std::string status, int springID, int pos) const
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetOldMaxDisp()
 {
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::const_iterator it = _disps.find(type);
-	std::map<std::string, std::map<int, std::vector<double*>>>::const_iterator it2 = it->second.find(status);
-	std::map<int, std::vector<double*>>::const_iterator it3 = it2->second.find(springID);
-	if (it3 != it2->second.end()) {
-		return it3->second[pos];
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-		return NULL;
-	}
+	return &_oldMaxDisp;
 }
 
-std::vector<double*> AnalysisSpringRecorder::GetDisplacementVector(std::string type, std::string status, int springID) const
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetNewPlasticDisp()
 {
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::const_iterator it = _disps.find(type);
-	std::map<std::string, std::map<int, std::vector<double*>>>::const_iterator it2 = it->second.find(status);
-	std::map<int, std::vector<double*>>::const_iterator it3 = it2->second.find(springID);
-	if (it3 != it2->second.end()) {
-		return it3->second;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-		return std::vector<double*>();
-	}
+	return &_newPlasticDisp;
 }
 
-std::map<std::string, std::map<int, std::vector<double*>>> AnalysisSpringRecorder::GetDisplacementPerIterMap() const
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetOldPlasticDisp()
 {
-	return _perIterDisps;
+	return &_oldPlasticDisp;
 }
 
-double* AnalysisSpringRecorder::GetDisplacementPerIter(std::string status, int springID, int pos) const
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetNewUnlDisp()
 {
-	std::map<std::string, std::map<int, std::vector<double*>>>::const_iterator it = _perIterDisps.find(status);
-	std::map<int, std::vector<double*>>::const_iterator it2 = it->second.find(springID);
-	if (it2 != it->second.end()) {
-		return it2->second[pos];
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-		return NULL;
-	}
+	return &_newUnlDisp;
 }
 
-void AnalysisSpringRecorder::SetStagesValues(std::string flag, int springID, std::vector<std::string*> newDisps)
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetOldUnlDisp()
 {
-	std::map<std::string, std::map<int, std::vector<std::string*>>>::iterator it = _stages.find(flag);
-	std::map<int, std::vector<std::string*>>::iterator it2 = it->second.find(springID);
-	if (it2 != it->second.end()) {
-		it2->second = newDisps;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
+	return &_oldUnlDisp;
 }
 
-void AnalysisSpringRecorder::SetIndividualStagesValues(std::string flag, int springID, int pos, std::string* string)
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetNewRelDisp()
 {
-	std::map<std::string, std::map<int, std::vector<std::string*>>>::iterator it = _stages.find(flag);
-	std::map<int, std::vector<std::string*>>::iterator it2 = it->second.find(springID);
-	if (it2 != it->second.end()) {
-		it2->second[pos] = string;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
+	return &_newRelDisp;
 }
 
-std::map<std::string, std::map<int, std::vector<std::string*>>> AnalysisSpringRecorder::GetStagesMap() const
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetOldRelDisp()
 {
-	return _stages;
+	return &_oldRelDisp;
 }
 
-std::string* AnalysisSpringRecorder::GetStages(std::string flag, int springID, int pos) const
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetMaxDispIter()
 {
-	std::map<std::string, std::map<int, std::vector<std::string*>>>::const_iterator it = _stages.find(flag);
-	std::map<int, std::vector<std::string*>>::const_iterator it2 = it->second.find(springID);
-	if (it2 != it->second.end()) {
-		return it2->second[pos];
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-		return NULL;
-	}
+	return &_maxDispIter;
 }
 
-std::vector<std::string*> AnalysisSpringRecorder::GetStagesVector(std::string flag, int springID) const
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetMinDispIter()
 {
-	std::map<std::string, std::map<int, std::vector<std::string*>>>::const_iterator it = _stages.find(flag);
-	std::map<int, std::vector<std::string*>>::const_iterator it2 = it->second.find(springID);
-	if (it2 != it->second.end()) {
-		return it2->second;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-		return std::vector<std::string*>();
-	}
+	return &_minDispIter;
+}
 
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetUnlDispIter()
+{
+	return &_unlDispIter;
+}
+
+std::vector<std::vector<double*>>* AnalysisSpringRecorder::GetRelDispIter()
+{
+	return &_relDispIter;
+}
+
+std::vector<std::vector<std::string*>>* AnalysisSpringRecorder::GetNewStages()
+{
+	return &_newStages;
+}
+
+std::vector<std::vector<std::string*>>* AnalysisSpringRecorder::GetOldStages()
+{
+	return &_oldStages;
+}
+
+std::vector<std::vector<std::string*>>* AnalysisSpringRecorder::GetListStages() 
+{
+	return &_listStages;
+}
+
+void AnalysisSpringRecorder::SwapOldNewVectors(int ele)
+{
+	_oldDisp[ele - 1] = _newDisp[ele - 1];
+	_oldMinDisp[ele - 1] = _newMinDisp[ele - 1];
+	_oldMaxDisp[ele - 1] = _newMaxDisp[ele - 1];
+	_oldPlasticDisp[ele - 1] = _newPlasticDisp[ele - 1];
+	_oldUnlDisp[ele - 1] = _newUnlDisp[ele - 1];
+	_oldRelDisp[ele - 1] = _newRelDisp[ele - 1];
+	_oldStages[ele - 1] = _newStages[ele - 1];
 }
 
 void AnalysisSpringRecorder::InitializeAllVectors()
 {
 	//Initializes all disps the vectors
-	std::vector<double*> vec(3, new double(0));
-	std::map<int, std::vector<double*>> map1;
+	double* d = new double(0);
+	std::string* s = new std::string("initial");
+	std::vector<double*> vec(3, d);
+	std::vector<std::string*> vec1(3, s);
 
-	for (int i = 0; i < _springsID.size(); i++) { //for each spring ID
-		map1.insert(std::pair<int, std::vector<double*>>(_springsID[i], vec));
+	for (int i = 0; i < _springsID.size(); i++) { //for each element
+		_oldDisp.emplace_back(vec);
+		_newDisp.emplace_back(vec);
+		_oldMinDisp.emplace_back(vec);
+		_newMinDisp.emplace_back(vec);
+		_oldMaxDisp.emplace_back(vec);
+		_newMaxDisp.emplace_back(vec);
+		_oldPlasticDisp.emplace_back(vec);
+		_newPlasticDisp.emplace_back(vec);
+		_oldUnlDisp.emplace_back(vec);
+		_newUnlDisp.emplace_back(vec);
+		_oldRelDisp.emplace_back(vec);
+		_newRelDisp.emplace_back(vec);
+		_maxDispIter.emplace_back(vec);
+		_minDispIter.emplace_back(vec);
+		_unlDispIter.emplace_back(vec);
+		_relDispIter.emplace_back(vec);
+		_oldStages.emplace_back(vec1);
+		_newStages.emplace_back(vec1);
+		_listStages.emplace_back(vec1);
+
 	}
-	std::map<std::string, std::map<int, std::vector<double*>>> map2;
-	map2.insert(std::pair<std::string, std::map<int, std::vector<double*>>>("old", map1));
-	map2.insert(std::pair<std::string, std::map<int, std::vector<double*>>>("new", map1));
-
-	_disps.insert(std::pair<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>("disp", map2));
-	_disps.insert(std::pair<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>("minDisp", map2));
-	_disps.insert(std::pair<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>("maxDisp", map2));
-	_disps.insert(std::pair<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>("plasticDisp", map2));
-	_disps.insert(std::pair<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>("unlDisp", map2));
-	_disps.insert(std::pair<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>("relDisp", map2));
-
-	_perIterDisps.insert(std::pair<std::string, std::map<int, std::vector<double*>>>("maxDispIter", map1));
-	_perIterDisps.insert(std::pair<std::string, std::map<int, std::vector<double*>>>("minDispIter", map1));
-	_perIterDisps.insert(std::pair<std::string, std::map<int, std::vector<double*>>>("unlDispIter", map1));
-	_perIterDisps.insert(std::pair<std::string, std::map<int, std::vector<double*>>>("relDispIter", map1));
-
-	//Initializes all stages the vectors
-	std::vector<std::string*> vec1(3, new std::string("initial"));
-	std::map<int, std::vector<std::string*>> map5;
-
-	for (int i = 0; i < _springsID.size(); i++) { //for each spring ID
-		map5.insert(std::pair<int, std::vector<std::string*>>(_springsID[i], vec1));
-	}
-
-	_stages.insert(std::pair<std::string, std::map<int, std::vector<std::string*>>>("old", map5));
-	_stages.insert(std::pair<std::string, std::map<int, std::vector<std::string*>>>("new", map5));
-	_stages.insert(std::pair<std::string, std::map<int, std::vector<std::string*>>>("list", map5));
 }
 
 void AnalysisSpringRecorder::UpdatePerIterDisps()
 {
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it = _perIterDisps.find("maxDispIter");
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::iterator it2 = _disps.find("maxDisp");
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it3 = it2->second.find("new");
-
-	if (it != _perIterDisps.end()) {
-		it->second = it3->second;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
-
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it4 = _perIterDisps.find("minDispIter");
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::iterator it5 = _disps.find("minDisp");
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it6 = it5->second.find("new");
-
-	if (it4 != _perIterDisps.end()) {
-		it4->second = it6->second;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
-
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it7 = _perIterDisps.find("unlDispIter");
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::iterator it8 = _disps.find("unlDisp");
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it9 = it8->second.find("new");
-
-	if (it7 != _perIterDisps.end()) {
-		it7->second = it9->second;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
-
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it10 = _perIterDisps.find("relDispIter");
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>>::iterator it11 = _disps.find("relDisp");
-	std::map<std::string, std::map<int, std::vector<double*>>>::iterator it12 = it11->second.find("new");
-
-	if (it10 != _perIterDisps.end()) {
-		it10->second = it12->second;
-	}
-	else {
-		std::cout << "Error setting value" << std::endl;
-	}
+	_maxDispIter = _newMaxDisp;
+	_minDispIter = _newMinDisp;
+	_unlDispIter = _newUnlDisp;
+	_relDispIter = _newRelDisp;
 }

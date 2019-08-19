@@ -207,17 +207,17 @@ std::vector<std::vector<int>> Spring3D::GetGlobalRestDOFVector() {
 }
 
 //<summary>Calculates the local stiffness matrix based on the displacement based</summary>
-Matrix Spring3D::GetLocalStifnessMatrixDispBased(std::vector<double> &listOfPos, std::vector<double> &listOfMinDisp, std::vector<double> &listOfMaxDisp, std::vector<double> &listOfPlasticDisp, std::vector<std::string> &listOfLoadStage, std::vector<std::string> &listOfStage, std::vector<double> &listOfUnlDisp, std::vector<double> &listOfRelDisp) {
+Matrix Spring3D::GetLocalStifnessMatrixDispBased(std::vector<double*> listOfPos, std::vector<double*> listOfMinDisp, std::vector<double*> listOfMaxDisp, std::vector<double*> listOfPlasticDisp, std::vector<std::string*> listOfLoadStage, std::vector<std::string*> &listOfStage, std::vector<double*> listOfUnlDisp, std::vector<double*> listOfRelDisp) {
 	//disp is 0 for initial stiffness
 	double** stiff = Matrix::CreateMatrixDouble(3);
 	std::vector<int> pos = GetListOfGlobalMaterialDirections();
 
 	for (int i = 0; i < 3; i++) { //for each direction of the Spring3D (i.e., x, y, and z)
-		if (listOfPos[i] == 0){ //this is used to verify if the initial stiffness should be used or if the actual displacement should be used to calcualte the actual stiffness
+		if (*listOfPos[i] == 0){ //this is used to verify if the initial stiffness should be used or if the actual displacement should be used to calcualte the actual stiffness
 			stiff[pos[i]][pos[i]] = (*_listOfMaterials[pos[i]]).GetInitialStiffness();
 		}
 		else {
-			stiff[pos[i]][pos[i]] = (*_listOfMaterials[pos[i]]).GetSecantStiffnessFromDisplacement(listOfPos[i], listOfPlasticDisp[i], listOfMaxDisp[i], listOfMinDisp[i], listOfLoadStage[i], listOfStage[i], listOfUnlDisp[i], listOfRelDisp[i]);
+			stiff[pos[i]][pos[i]] = (*_listOfMaterials[pos[i]]).GetSecantStiffnessFromDisplacement(*listOfPos[i], *listOfPlasticDisp[i], *listOfMaxDisp[i], *listOfMinDisp[i], *listOfLoadStage[i], *listOfStage[i], *listOfUnlDisp[i], *listOfRelDisp[i]);
 		}
 	}
 	return Matrix(stiff, 3);
@@ -248,18 +248,17 @@ Matrix Spring3D::GetTransformationMatrix() {
 }
 
 //<summary>Calculates the global stiffness matrix based on the displacement based</summary>
-Matrix Spring3D::GetGlobalStiffMatrixDispBased(const AnalysisSpringRecorder* springRecorder) {
+Matrix Spring3D::GetGlobalStiffMatrixDispBased(AnalysisSpringRecorder* springRecorder) {
 	Matrix transf = GetTransformationMatrix();
 	Matrix transTransp = MatrixOperation::Transpose(transf);
-	Matrix localStiff = GetLocalStifnessMatrixDispBased(springRecorder->GetDisplacementVector("disp", "new", _ID),
-		springRecorder->GetDisplacementVector("minDisp", "new", _ID),
-		springRecorder->GetDisplacementVector("maxDisp", "new", _ID),
-		springRecorder->GetDisplacementVector("plasticDisp", "new", _ID),
-		springRecorder->GetDisplacementVector("minDisp", "new", _ID),
-		springRecorder->GetStagesVector("list", _ID),
-		springRecorder->GetStagesVector("new", _ID),
-		springRecorder->GetDisplacementVector("unlDisp", "new", _ID),
-		springRecorder->GetDisplacementVector("relDisp", "new", _ID));
+	Matrix localStiff = GetLocalStifnessMatrixDispBased((*springRecorder->GetNewDisp())[_ID-1],
+		(*springRecorder->GetNewMinDisp())[_ID - 1],
+		(*springRecorder->GetNewMaxDisp())[_ID - 1],
+		(*springRecorder->GetNewPlasticDisp())[_ID - 1],
+		(*springRecorder->GetListStages())[_ID - 1],
+		(*springRecorder->GetNewStages())[_ID - 1],
+		(*springRecorder->GetNewUnlDisp())[_ID - 1],
+		(*springRecorder->GetNewRelDisp())[_ID - 1]);
 
 	Matrix mult2 = transTransp * localStiff * transf;
 
@@ -289,7 +288,7 @@ void Spring3D::AssembleSpringGlobalMatrixOnComplete(std::vector<Spring3D> &vecEl
 
 //<summary>Assembles the members of the global stiffness matrix of a collection of Spring3D elements on the total stiffness matrix.</summary>
 //<comment>Uses the displacement based method</comment>
-Matrix Spring3D::AssembleSpringGlobalMatrixOnReducedSizedMatrix(const int* redSize, const std::map<int, Spring3D*>* vecEle, const AnalysisSpringRecorder* springRecorder) {
+Matrix Spring3D::AssembleSpringGlobalMatrixOnReducedSizedMatrix(const int* redSize, const std::map<int, Spring3D*>* vecEle, AnalysisSpringRecorder* springRecorder) {
 	Matrix m(*redSize, *redSize);
 
 	std::map<int, Spring3D*>::const_iterator it = vecEle->begin();
@@ -312,8 +311,10 @@ Matrix Spring3D::AssembleSpringGlobalMatrixOnReducedSizedMatrix(const int* redSi
 
 //<summary>Assembles the members of the global stiffness matrix of a collection of Spring3D elements on the total stiffness matrix.</summary>
 //<comment>Uses the displacement based method</comment>
-Matrix Spring3D::AssembleSpringGlobalRestrictedMatrixOnComplete(const int* redSize, const std::map<int, Spring3D*>* vecEle, const AnalysisSpringRecorder* springRecorder) {
-	Matrix m(*redSize, *redSize);
+Matrix Spring3D::AssembleSpringGlobalRestrictedMatrixOnComplete(const PreAnalysisSetUp* setUp, const std::map<int, Spring3D*>* vecEle, AnalysisSpringRecorder* springRecorder) {
+	int sizeRow = *setUp->StiffMatrixSize() - *setUp->ReducedStiffMatrixSize();
+	int sizeCol = *setUp->StiffMatrixSize();
+	Matrix m(sizeRow, sizeCol);
 	
 	std::map<int, Spring3D*>::const_iterator it = vecEle->begin();
 
@@ -331,7 +332,7 @@ Matrix Spring3D::AssembleSpringGlobalRestrictedMatrixOnComplete(const int* redSi
 					m.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec2[j][1]];
 				}
 				for (int j = 0; j < runs; j++) { //for all the columns
-					int index2 = vec[j][0] + *redSize;
+					int index2 = vec[j][0] + *setUp->ReducedStiffMatrixSize();
 					m.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec[j][1]];
 				}
 			}
@@ -343,12 +344,13 @@ Matrix Spring3D::AssembleSpringGlobalRestrictedMatrixOnComplete(const int* redSi
 
 //<summary>Checks the material nonlinearity of Spring3D elements to decide if convergence has been achieved</summary>
 //<comment>Based on the displacement based theory</comment>
-bool Spring3D::CheckMaterialNonlinearityConvergenceDispBased(const StructureManager* structManager, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecord, bool* breakAnalysis) {
+bool Spring3D::CheckMaterialNonlinearityConvergenceDispBased(const StructureManager* structManager, const PreAnalysisSetUp* setUp, AnalysisSpringRecorder* springRecord, bool* breakAnalysis) {
 	
 	std::map<int, Spring3D*>::const_iterator it = structManager->SpringElements()->begin();
 
 	while (it != structManager->SpringElements()->end()) {//for each Spring3D element
 		Spring3D* spring = it->second;
+		int springID = spring->GetID();
 		std::vector<int> listOfPos = spring->GetListOfGlobalMaterialDirections();
 
 		std::vector<SpringMaterialModels*> matList = spring->GetListOfMaterials();
@@ -357,23 +359,15 @@ bool Spring3D::CheckMaterialNonlinearityConvergenceDispBased(const StructureMana
 		double newStiff[3];
 
 		for (int j = 0; j < matList.size(); j++) { //x then y then z direction
-			oldStiff[j] = matList[listOfPos[j]]->GetSecantStiffnessFromDisplacement(springRecord->GetDisplacementMap().find("disp")->second.find("old")->second.find(it->first)->second[j],
-				springRecord->GetDisplacementMap().find("plasticDisp")->second.find("new")->second.find(it->first)->second[j], 
-				springRecord->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(it->first)->second[j], 
-				springRecord->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(it->first)->second[j], 
-				springRecord->GetStagesMap().find("list")->second.find(it->first)->second[j],
-				springRecord->GetStagesMap().find("old")->second.find(it->first)->second[j],
-				springRecord->GetDisplacementMap().find("unlDisp")->second.find("new")->second.find(it->first)->second[j],
-				springRecord->GetDisplacementMap().find("relDisp")->second.find("new")->second.find(it->first)->second[j]); //should this last 2 be "OLD"?
+			oldStiff[j] = matList[listOfPos[j]]->GetSecantStiffnessFromDisplacement(*(*springRecord->GetOldDisp())[springID -1][j],
+				* (*springRecord->GetOldPlasticDisp())[springID - 1][j], * (*springRecord->GetOldMaxDisp())[springID - 1][j], *(*springRecord->GetOldMinDisp())[springID - 1][j],
+				* (*springRecord->GetListStages())[springID - 1][j], * (*springRecord->GetOldStages())[springID - 1][j],
+				* (*springRecord->GetOldUnlDisp())[springID - 1][j], * (*springRecord->GetOldRelDisp())[springID - 1][j]); //should this last 2 be "OLD"?
 			
-			newStiff[j] = matList[listOfPos[j]]->GetSecantStiffnessFromDisplacement(springRecord->GetDisplacementMap().find("disp")->second.find("new")->second.find(it->first)->second[j],
-				springRecord->GetDisplacementMap().find("plasticDisp")->second.find("old")->second.find(it->first)->second[j],
-				springRecord->GetDisplacementMap().find("maxDisp")->second.find("old")->second.find(it->first)->second[j],
-				springRecord->GetDisplacementMap().find("minDisp")->second.find("old")->second.find(it->first)->second[j],
-				springRecord->GetStagesMap().find("list")->second.find(it->first)->second[j],
-				springRecord->GetStagesMap().find("new")->second.find(it->first)->second[j],
-				springRecord->GetDisplacementMap().find("unlDisp")->second.find("new")->second.find(it->first)->second[j],
-				springRecord->GetDisplacementMap().find("relDisp")->second.find("new")->second.find(it->first)->second[j]);
+			newStiff[j] = matList[listOfPos[j]]->GetSecantStiffnessFromDisplacement(*(*springRecord->GetNewDisp())[springID - 1][j],
+				*(*springRecord->GetNewPlasticDisp())[springID - 1][j], *(*springRecord->GetNewMaxDisp())[springID - 1][j], *(*springRecord->GetNewMinDisp())[springID - 1][j],
+				* (*springRecord->GetListStages())[springID - 1][j], * (*springRecord->GetNewStages())[springID - 1][j],
+				* (*springRecord->GetNewUnlDisp())[springID - 1][j], * (*springRecord->GetNewRelDisp())[springID - 1][j]);
 		}
 
 		if (newStiff[0] == -1 || newStiff[1] == -1 || newStiff[2] == -1) {
@@ -393,21 +387,19 @@ bool Spring3D::CheckMaterialNonlinearityConvergenceDispBased(const StructureMana
 	return true;
 }
 
-std::vector<int> Spring3D::GetPlasticDispIndexes(const std::map<int, std::vector<double>>* listOfPlasticDisp, const StructureManager* structManager, const int* DOF)
+std::vector<int> Spring3D::GetPlasticDispIndexes(const std::vector<std::vector<double*>> listOfPlasticDisp, const StructureManager* structManager, const int* DOF)
 {
-	std::map<int, std::vector<double>>::const_iterator it = listOfPlasticDisp->begin();
 	std::vector<int> vec;
 	
-	while (it != listOfPlasticDisp->end()) {//for each spring3D
-		for (int j = 0; j < it->second.size(); j++) { //for x, y, and z
-			if (it->second[j] != 0) {
-				int nodeID = *structManager->SpringElements()->find(it->first)->second->GetNode2().GetID();
+	for (int i = 0; i < listOfPlasticDisp.size(); i++) {//for each spring3D
+		for (int j = 0; j < listOfPlasticDisp[i].size(); j++) { //for x, y, and z
+			if (*listOfPlasticDisp[i][j] != 0) {
+				int nodeID = *structManager->SpringElements()->find(i + 1)->second->GetNode2().GetID();
 				int index = (nodeID - 1) * (*DOF) + j;
 				int count = Support::NumberOfDOFBeforeDOF(&index, structManager->Supports(), DOF);
 				vec.push_back(index - count);
 			}
 		}
-		it++;
 	}
 	return vec;
 }
@@ -434,10 +426,11 @@ void Spring3D::UpdateSpringLoadStages(const std::map<int, Spring3D*>* vecEle, An
 
 	while (it != vecEle->end()) {
 		Spring3D* spring = it->second;
+		int ID = spring->GetID();
 		std::vector<int> pos = spring->GetListOfGlobalMaterialDirections();
 
 		for (int j = 0; j < 3; j++) {
-			springRecord->GetStagesMap().find("list")->second.find(it->first)->second[j] = springRecord->GetStagesMap().find("new")->second.find(it->first)->second[j];
+			(*springRecord->GetListStages())[ID - 1][j] = (*springRecord->GetNewStages())[ID - 1][j];
 		}
 		it++;
 	}

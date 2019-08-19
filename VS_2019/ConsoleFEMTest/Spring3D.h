@@ -26,10 +26,10 @@ public:
 	std::vector<int> GetListOfGlobalMaterialDirections();
 	std::vector<std::vector<int>> GetGlobalDOFVector();
 	std::vector<std::vector<int>> GetGlobalRestDOFVector();
-	Matrix GetLocalStifnessMatrixDispBased(std::vector<double> &listOfPos, std::vector<double> &listOfMinDisp, std::vector<double> &listOfMaxDisp, std::vector<double> &listOfPlasticDisp, std::vector<std::string> &listOfLoadStage, std::vector<std::string> &listOfStage, std::vector<double> &listOfUnlDisp, std::vector<double> &listOfRelDisp);
+	Matrix GetLocalStifnessMatrixDispBased(std::vector<double*> listOfPos, std::vector<double*> listOfMinDisp, std::vector<double*> listOfMaxDisp, std::vector<double*> listOfPlasticDisp, std::vector<std::string*> listOfLoadStage, std::vector<std::string*>& listOfStage, std::vector<double*> listOfUnlDisp, std::vector<double*> listOfRelDisp);
 	Matrix GetTransformationMatrix();
 	Matrix GetVectorBetweenNodes();
-	Matrix GetGlobalStiffMatrixDispBased(const AnalysisSpringRecorder* springRecorder);
+	Matrix GetGlobalStiffMatrixDispBased(AnalysisSpringRecorder* springRecorder);
 	std::vector<double> GlobalDOFVectorNotUsed();
 	void CalculateGlobalDOFVector(const std::map<int, Support*>* supList, const int* DOF);
 	Matrix GetElementGlobalDisplacementVector(Matrix completeD);
@@ -41,11 +41,11 @@ public:
 
 	//static void AssembleCompleteGlobalMatrixThreads(std::vector<Spring3D> &vecEle, Matrix& complete, std::mutex& mu);
 	static void AssembleSpringGlobalMatrixOnComplete(std::vector<Spring3D> &vecEle, Matrix& complete, std::vector<std::vector<double>> &listOfDisp, std::vector<std::vector<double>> &listOfMinDisp, std::vector<std::vector<double>> &listOfMaxDisp, std::vector<std::vector<double>> &listOfPlasticDisp, std::vector<std::vector<std::string>> &listOfLoadStage, std::vector <std::vector<std::string>> &listOfStage, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp);
-	static Matrix AssembleSpringGlobalRestrictedMatrixOnComplete(const int* redSize, const std::map<int, Spring3D*>* vecEle, const AnalysisSpringRecorder* springRecorder);
+	static Matrix AssembleSpringGlobalRestrictedMatrixOnComplete(const PreAnalysisSetUp* setUp, const std::map<int, Spring3D*>* vecEle, AnalysisSpringRecorder* springRecorder);
 	//static void AssembleSpringGlobalMatrixOnCompleteDispBased(std::vector<Spring3D> &vecEle, Matrix& k11, Matrix &k12, Matrix &k21, Matrix& k22);
-	static Matrix AssembleSpringGlobalMatrixOnReducedSizedMatrix(const int* redSize, const std::map<int, Spring3D*>* vecEle, const AnalysisSpringRecorder* springRecorder);
-	static bool CheckMaterialNonlinearityConvergenceDispBased(const StructureManager* structManager, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecord, bool* breakAnalysis);
-	static std::vector<int> GetPlasticDispIndexes(const std::map<int, std::vector<double>>* listOfPlasticDisp, const StructureManager* structManager, const int* DOF);
+	static Matrix AssembleSpringGlobalMatrixOnReducedSizedMatrix(const int* redSize, const std::map<int, Spring3D*>* vecEle, AnalysisSpringRecorder* springRecorder);
+	static bool CheckMaterialNonlinearityConvergenceDispBased(const StructureManager* structManager, const PreAnalysisSetUp* setUp, AnalysisSpringRecorder* springRecord, bool* breakAnalysis);
+	static std::vector<int> GetPlasticDispIndexes(const std::vector<std::vector<double*>> listOfPlasticDisp, const StructureManager* structManager, const int* DOF);
 	static void UpdateSpringLoadStages(const std::map<int, Spring3D*>* vecEle, AnalysisSpringRecorder* springRecord);
 
 private:

@@ -44,7 +44,7 @@ public:
 	static void ConvertToEigenMatrix(const Matrix &m, Eigen::MatrixXd& eigenMatrix);
 	static Matrix Sqrt(const Matrix &m);
 	static void PopulateDiagonalOnly(std::vector<double>& terms, Matrix &m);
-	static Matrix FillMatrixBasedOnOtherMatrix(const Matrix* toFill, const Matrix* filler);
+	static Matrix FillMatrixBasedOnOtherMatrix(Matrix& toFill, Matrix& filler);
 
 private:
 	MatrixOperation();

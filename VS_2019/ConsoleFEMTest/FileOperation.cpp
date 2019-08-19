@@ -20,10 +20,18 @@ FileOperation::~FileOperation()
 }
 
 
-void FileOperation::SaveResultsFile(std::string &fileName, std::vector<std::vector<Node>> &nodePerStep, std::vector<Node> &listOfNodes, std::vector<Matrix> &forcePerStep, std::vector<double> &natFreq, Matrix &modeShape) {
+void FileOperation::SaveResultsFile(std::string& fileName, const StructureManager* structManager, const NodalRecorder<Node>* dispRecorder, const NodalRecorder<Load>* forceRecorder) {
+	std::vector<double> emptyVec;
+	Matrix emptyMatrix(0);
+	SaveResultsFile(fileName, structManager, dispRecorder, forceRecorder, emptyVec, emptyMatrix);
 
-	int steps = nodePerStep.size();
-	int nodes = nodePerStep[0].size();
+}
+
+void FileOperation::SaveResultsFile(std::string &fileName, const StructureManager* structManager, const NodalRecorder<Node>* dispRecorder, const NodalRecorder<Load>* forceRecorder, std::vector<double> &natFreq, Matrix &modeShape) {
+
+	int steps = dispRecorder->GetRecord()->size();
+	int nodes = dispRecorder->GetRecord()->find(1)->second.size();
+	int forces = forceRecorder->GetRecord()->find(1)->second.size();
 
 	XMLDocument* doc = new XMLDocument();
 	XMLDeclaration* dec = doc->NewDeclaration();
@@ -33,52 +41,58 @@ void FileOperation::SaveResultsFile(std::string &fileName, std::vector<std::vect
 	rootEle->SetAttribute("total", steps);
 	doc->LinkEndChild(rootEle);
 
-	XMLElement* natFreqEle = doc->NewElement("frequencies");
+	if (natFreq.size() != 0) {
 
-	for (int i = 0; i < modeShape.GetDimY(); i++) {
-		XMLElement* freqEle = doc->NewElement("frequency");
-		freqEle->SetAttribute("value", natFreq[i]);
-		XMLText* freq = doc->NewText(std::to_string(i + 1).c_str());
-		freqEle->LinkEndChild(freq);
-		natFreqEle->LinkEndChild(freqEle);
-	}
+		XMLElement* natFreqEle = doc->NewElement("frequencies");
 
-	rootEle->LinkEndChild(natFreqEle);
-
-	XMLElement* modalEle = doc->NewElement("modal");
-	modalEle->SetAttribute("total", modeShape.GetDimY());
-
-	for (int i = 0; i < modeShape.GetDimY(); i++) {
-		XMLElement* modeEle = doc->NewElement("mode");
-		modeEle->SetAttribute("total", modeShape.GetDimX() / 6);
-		int count = 0;
-		for (int j = 0; j < modeShape.GetDimX(); j += 6) {
-			XMLElement* node = doc->NewElement("node");
-			node->SetAttribute("x", modeShape.GetMatrixDouble()[j][i]);
-			node->SetAttribute("y", modeShape.GetMatrixDouble()[j + 1][i]);
-			node->SetAttribute("z", modeShape.GetMatrixDouble()[j + 2][i]);
-			XMLText* ID = doc->NewText(std::to_string(count + 1).c_str());
-			node->LinkEndChild(ID);
-			modeEle->LinkEndChild(node);
-			count++;
+		for (int i = 0; i < modeShape.GetDimY(); i++) {
+			XMLElement* freqEle = doc->NewElement("frequency");
+			freqEle->SetAttribute("value", natFreq[i]);
+			XMLText* freq = doc->NewText(std::to_string(i + 1).c_str());
+			freqEle->LinkEndChild(freq);
+			natFreqEle->LinkEndChild(freqEle);
 		}
-		modalEle->LinkEndChild(modeEle);
+
+		rootEle->LinkEndChild(natFreqEle);
+
 	}
 
-	rootEle->LinkEndChild(modalEle);
+	if (modeShape.GetDimX() != 0) {
+		XMLElement* modalEle = doc->NewElement("modal");
+		modalEle->SetAttribute("total", modeShape.GetDimY());
+
+		for (int i = 0; i < modeShape.GetDimY(); i++) {
+			XMLElement* modeEle = doc->NewElement("mode");
+			modeEle->SetAttribute("total", modeShape.GetDimX() / 6);
+			int count = 0;
+			for (int j = 0; j < modeShape.GetDimX(); j += 6) {
+				XMLElement* node = doc->NewElement("node");
+				node->SetAttribute("x", modeShape.GetMatrixDouble()[j][i]);
+				node->SetAttribute("y", modeShape.GetMatrixDouble()[j + 1][i]);
+				node->SetAttribute("z", modeShape.GetMatrixDouble()[j + 2][i]);
+				XMLText* ID = doc->NewText(std::to_string(count + 1).c_str());
+				node->LinkEndChild(ID);
+				modeEle->LinkEndChild(node);
+				count++;
+			}
+			modalEle->LinkEndChild(modeEle);
+		}
+
+		rootEle->LinkEndChild(modalEle);
+	}
 
 	for (int i = 0; i < steps; i++) {
 		std::string txtStep = "loadstep" + std::to_string(i + 1);
 		XMLElement* stepRoot = doc->NewElement(txtStep.c_str());
 		XMLElement* dispRoot = doc->NewElement("displacements");
 		dispRoot->SetAttribute("total", nodes);
-		for (int j = 0; j < nodePerStep[i].size(); j++) {
+		for (int j = 0; j < nodes; j++) {
 			XMLElement* disp = doc->NewElement("displacement");
-			std::string txtstr = std::to_string(j + 1);
+			std::string txtstr = std::to_string((*dispRecorder->Nodes())[j]);
 			XMLText* ID = doc->NewText(txtstr.c_str());
-			disp->SetAttribute("x", nodePerStep[i][j].GetX() - listOfNodes[j].GetX());
-			disp->SetAttribute("y", nodePerStep[i][j].GetY() - listOfNodes[j].GetY());
-			disp->SetAttribute("z", nodePerStep[i][j].GetZ() - listOfNodes[j].GetZ());
+			disp->SetAttribute("x", *dispRecorder->GetRecord()->find(i + 1)->second.find(j + 1)->second.GetX() - *structManager->Nodes()->find(j + 1)->second->GetX());
+			disp->SetAttribute("y", *dispRecorder->GetRecord()->find(i + 1)->second.find(j + 1)->second.GetY() - *structManager->Nodes()->find(j + 1)->second->GetY());
+			disp->SetAttribute("z", *dispRecorder->GetRecord()->find(i + 1)->second.find(j + 1)->second.GetZ() - *structManager->Nodes()->find(j + 1)->second->GetZ());
 			disp->LinkEndChild(ID);
 			dispRoot->LinkEndChild(disp);
 		}
@@ -89,17 +103,15 @@ void FileOperation::SaveResultsFile(std::string &fileName, std::vector<std::vect
 
 		int j = 0;
 		int count = 1;
-		while (j < forcePerStep[i].GetDimX()) {
+		for (int j = 0; j < nodes; j++) {
 			XMLElement* force = doc->NewElement("force");
-			std::string txtstr = std::to_string(count);
+			std::string txtstr = std::to_string((*forceRecorder->Nodes())[j]);
 			XMLText* ID = doc->NewText(txtstr.c_str());
-			force->SetAttribute("x", forcePerStep[i].GetMatrixDouble()[j][0]);
-			force->SetAttribute("y", forcePerStep[i].GetMatrixDouble()[j + 1][0]);
-			force->SetAttribute("z", forcePerStep[i].GetMatrixDouble()[j + 2][0]);
+			force->SetAttribute("x", forceRecorder->GetRecord()->find(i + 1)->second.find(j + 1)->second.GetLoadVector()[0][1]);
+			force->SetAttribute("y", forceRecorder->GetRecord()->find(i + 1)->second.find(j + 1)->second.GetLoadVector()[1][1]);
+			force->SetAttribute("z", forceRecorder->GetRecord()->find(i + 1)->second.find(j + 1)->second.GetLoadVector()[2][1]);
 			force->LinkEndChild(ID);
 			forceRoot->LinkEndChild(force);
-			j += 6;
-			count++;
 		}
 		stepRoot->LinkEndChild(forceRoot);
 		rootEle->LinkEndChild(stepRoot);
@@ -399,7 +411,7 @@ void FileOperation::ReadInputFromXML(std::string fileName, StructureManager& str
 				sLoad->SetRecordZ(recordsZ);
 			}
 		}
-		*analysis = new DynamicAnalysis(timeVec[timeVec.size() - 1], 0.005, AnalysisTypes::Seismic, IntegrationMethod::AverageNewmark, sLoad, 100, 0.0001);
+		*analysis = new DynamicAnalysis(timeVec[timeVec.size() - 1], 0.005, AnalysisTypes::Seismic, IntegrationMethod::AverageNewmark, sLoad, 100, 0.001);
 	}
 
 	element = root->FirstChildElement("impulse");
@@ -425,7 +437,7 @@ void FileOperation::ReadInputFromXML(std::string fileName, StructureManager& str
 
 		impLoad->SetPoints(points);
 		
-		*analysis = new DynamicAnalysis(points[points.size() - 1][0], 0.005, AnalysisTypes::Impulse, IntegrationMethod::AverageNewmark, impLoad, 100, 0.0001);
+		*analysis = new DynamicAnalysis(points[points.size() - 1][0], 0.0005, AnalysisTypes::Impulse, IntegrationMethod::AverageNewmark, impLoad, 100, 0.001);
 
 	}
 }

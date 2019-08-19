@@ -103,29 +103,29 @@ std::string SeismicLoad::GetType()
 
 
 
-Matrix SeismicLoad::GetSeismicLoadVector(const SeismicLoad* sLoad,const Matrix* FInc, const double* t) {
-	Matrix ans(FInc->GetDimX(), 1);
+Matrix SeismicLoad::GetSeismicLoadVector(const SeismicLoad& sLoad, Matrix& FInc, const double* t) {
+	Matrix ans(FInc.GetDimX(), 1);
 
 	double xLoad, yLoad, zLoad;
-	if (sLoad->GetIndexOfDirection('x') != -1) {
-		xLoad = sLoad->LoadFromTime(*t, 'x');
+	if (sLoad.GetIndexOfDirection('x') != -1) {
+		xLoad = sLoad.LoadFromTime(*t, 'x');
 	}
-	if (sLoad->GetIndexOfDirection('y') != -1) {
-		yLoad = sLoad->LoadFromTime(*t, 'y');
+	if (sLoad.GetIndexOfDirection('y') != -1) {
+		yLoad = sLoad.LoadFromTime(*t, 'y');
 	}
-	if (sLoad->GetIndexOfDirection('z') != -1) {
-		zLoad = sLoad->LoadFromTime(*t, 'z');
+	if (sLoad.GetIndexOfDirection('z') != -1) {
+		zLoad = sLoad.LoadFromTime(*t, 'z');
 	}
 
-	for (int i = 0; i < FInc->GetDimX(); i++) {
-		if (FInc->GetMatrixDouble()[i][0] == 1) {
+	for (int i = 0; i < FInc.GetDimX(); i++) {
+		if (FInc.GetMatrixDouble()[i][0] == 1) {
 			ans.GetMatrixDouble()[i][0] = xLoad;
 		}
-		else if (FInc->GetMatrixDouble()[i][0] == 2)
+		else if (FInc.GetMatrixDouble()[i][0] == 2)
 		{
 			ans.GetMatrixDouble()[i][0] = yLoad;
 		}
-		else if (FInc->GetMatrixDouble()[i][0] == 3) {
+		else if (FInc.GetMatrixDouble()[i][0] == 3) {
 			ans.GetMatrixDouble()[i][0] = zLoad;
 		}
 	}

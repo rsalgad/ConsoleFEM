@@ -13,36 +13,57 @@ public:
 	AnalysisSpringRecorder(std::vector<int> springsID);
 	AnalysisSpringRecorder(char c, const std::map<int, Spring3D*>* allSprings);
 	~AnalysisSpringRecorder();
-	void SetDisplacementValues(std::string type, std::string status, int springID, std::vector<double*> newDisps);
-	void SetIndividualDisplacementValues(std::string type, std::string status, int springID, int pos, double* val);
-	void SwapOldNewDisps(std::string type, int springID);
-	void SwapOldNewStages(int springID);
-	//std::map<std::string, std::map<std::string, std::map<int, std::vector<double>>>>* GetDisplacementMap();
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>> GetDisplacementMap() const;
-	double* GetDisplacement(std::string type, std::string status, int springID, int pos) const;
-	std::vector<double*> GetDisplacementVector(std::string type, std::string status, int springID) const;
 
-	void SetStagesValues(std::string flag, int springID, std::vector<std::string*> newDisps);
-	void SetIndividualStagesValues(std::string flag, int springID, int pos, std::string* string);
-	std::map<std::string, std::map<int, std::vector<std::string*>>> GetStagesMap() const;
-	std::string* GetStages(std::string flag, int springID, int pos) const;
-	std::vector<std::string*> GetStagesVector(std::string flag, int springID) const;
-	std::map<std::string, std::map<int, std::vector<double*>>> GetDisplacementPerIterMap() const;
-	double* GetDisplacementPerIter(std::string status, int springID, int pos) const;
+	std::vector<std::vector<double*>>* GetNewDisp();
+	//std::vector<std::vector<double*>>* GetNewDisp() const;
+	std::vector<std::vector<double*>>* GetOldDisp();
+	std::vector<std::vector<double*>>* GetNewMinDisp();
+	std::vector<std::vector<double*>>* GetOldMinDisp();
+	std::vector<std::vector<double*>>* GetNewMaxDisp();
+	std::vector<std::vector<double*>>* GetOldMaxDisp();
+	std::vector<std::vector<double*>>* GetNewPlasticDisp();
+	std::vector<std::vector<double*>>* GetOldPlasticDisp();
+	std::vector<std::vector<double*>>* GetNewUnlDisp();
+	std::vector<std::vector<double*>>* GetOldUnlDisp();
+	std::vector<std::vector<double*>>* GetNewRelDisp();
+	std::vector<std::vector<double*>>* GetOldRelDisp();
+	std::vector<std::vector<double*>>* GetMaxDispIter();
+	std::vector<std::vector<double*>>* GetMinDispIter();
+	std::vector<std::vector<double*>>* GetUnlDispIter();
+	std::vector<std::vector<double*>>* GetRelDispIter();
+	std::vector<std::vector<std::string*>>* GetNewStages();
+	std::vector<std::vector<std::string*>>* GetOldStages();
+	std::vector<std::vector<std::string*>>* GetListStages();
 
+	void SwapOldNewVectors(int ele);
 	void InitializeAllVectors();
 	void UpdatePerIterDisps();
 
 private:
-	//Hierarchy-> First map keys: "disp", "minDisp", "maxDisp", "plasticDisp", "unlDisp", "relDisp", "maxDispIter", "minDispIter", "unlDispIter", "relDispIter".
-	//second map keys: "old", "new"; third map: "spring_ID"
-	std::map<std::string, std::map<std::string, std::map<int, std::vector<double*>>>> _disps;
+	std::vector<std::vector<double*>> _newDisp;
+	std::vector<std::vector<double*>> _oldDisp;
+	std::vector<std::vector<double*>> _newMinDisp;
+	std::vector<std::vector<double*>> _oldMinDisp;
+	std::vector<std::vector<double*>> _newMaxDisp;
+	std::vector<std::vector<double*>> _oldMaxDisp;
+	std::vector<std::vector<double*>> _newPlasticDisp;
+	std::vector<std::vector<double*>> _oldPlasticDisp;
+	std::vector<std::vector<double*>> _newUnlDisp;
+	std::vector<std::vector<double*>> _oldUnlDisp;
+	std::vector<std::vector<double*>> _newRelDisp;
+	std::vector<std::vector<double*>> _oldRelDisp;
+
 
 	//"maxDispIter", "minDispIter", "unlDispIter", "relDispIter"
-	std::map<std::string, std::map<int, std::vector<double*>>> _perIterDisps;
+	std::vector<std::vector<double*>> _maxDispIter;
+	std::vector<std::vector<double*>> _minDispIter;
+	std::vector<std::vector<double*>> _unlDispIter;
+	std::vector<std::vector<double*>> _relDispIter;
 
 	//Hierarchy-> First map keys: "old", "new", "list"; second map keys: "spring_ID"
-	std::map<std::string, std::map<int, std::vector<std::string*>>> _stages;
+	std::vector<std::vector<std::string*>> _oldStages;
+	std::vector<std::vector<std::string*>> _newStages;
+	std::vector<std::vector<std::string*>> _listStages;
 
 	std::vector<int> _springsID;
 };

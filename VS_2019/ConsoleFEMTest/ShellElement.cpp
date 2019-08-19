@@ -1151,9 +1151,9 @@ void ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(const std::vect
 }
 
 //<summary>Calculates the displacement of the ninth node of the element</summary>
-void ShellElement::GetNinthNodeDisplacement(const Matrix *totalDisplacementMatrix, const std::map<int, ShellElement*>* listElements, const int* DOF) {
+void ShellElement::GetNinthNodeDisplacement(Matrix& totalDisplacementMatrix, const std::map<int, ShellElement*>* listElements, const int* DOF) {
 
-	double** matrix = totalDisplacementMatrix->GetMatrixDouble();
+	double** matrix = totalDisplacementMatrix.GetMatrixDouble();
 	std::map<int, ShellElement*>::const_iterator it = listElements->begin();
 
 	while (it != listElements->end()) {//for each element
@@ -1173,11 +1173,11 @@ void ShellElement::GetNinthNodeDisplacement(const Matrix *totalDisplacementMatri
 			ry += shape * matrix[(nodeID - 1) * (*DOF) + 4][0];
 		}
 
-		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF)][0] = x;
-		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 1][0] = y;
-		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 2][0] = z;
-		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 3][0] += rx;
-		totalDisplacementMatrix->GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 4][0] += ry;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF)][0] = x;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 1][0] = y;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 2][0] = z;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 3][0] += rx;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 4][0] += ry;
 
 		it++;
 	}
@@ -1221,7 +1221,7 @@ std::vector<std::vector<int>> ShellElement::CrescentOrderDOFVector(std::vector<s
 }
 
 
-Matrix ShellElement::ConvertAccFromReducedToTotal(const Matrix* acc,const std::vector<std::vector<int>>* totalMassDOFVec,const int* size) {
+Matrix ShellElement::ConvertAccFromReducedToTotal(Matrix& acc,const std::vector<std::vector<int>>* totalMassDOFVec,const int* size) {
 	int count = 0;
 
 	Matrix ans(*size, 1);
@@ -1249,7 +1249,7 @@ Matrix ShellElement::ConvertAccFromReducedToTotal(const Matrix* acc,const std::v
 		}
 
 		if (hasMass) {
-			ans.GetMatrixDouble()[k][0] = acc->GetMatrixDouble()[count][0];
+			ans.GetMatrixDouble()[k][0] = acc.GetMatrixDouble()[count][0];
 			count++;
 		}
 		else {
@@ -1290,12 +1290,12 @@ std::vector<std::vector<int>> ShellElement::GetTotalGlobalMassDOFVector(const st
 	return answer;
 }
 
-Matrix ShellElement::CondensedReducedStiffMatrixForModal(const Matrix* m, const std::vector<std::vector<int>>* totalMassDOFVec) {
+Matrix ShellElement::CondensedReducedStiffMatrixForModal(Matrix& m, const std::vector<std::vector<int>>* totalMassDOFVec) {
 
 	int DOF = 6;
 	int count = 0;
 
-	Matrix matrix(MatrixOperation::CopyMatrixDouble(*m), m->GetDimX(), m->GetDimY());
+	Matrix matrix(MatrixOperation::CopyMatrixDouble(m), m.GetDimX(), m.GetDimY());
 	/*
 	for (int i = 0; i < vecEle.size(); i++) { //for each shell element
 		ShellElement* ele = &vecEle[i];
@@ -1326,10 +1326,10 @@ Matrix ShellElement::CondensedReducedStiffMatrixForModal(const Matrix* m, const 
 	return ans;
 }
 
-Matrix ShellElement::ReducedAccelerationForceMatrix(const Matrix* m, const std::vector<std::vector<int>>* totalMassDOFVec, const int* DOF) {
+Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix& m, const std::vector<std::vector<int>>* totalMassDOFVec, const int* DOF) {
 	int count = 0;
 
-	Matrix matrix(MatrixOperation::CopyMatrixDouble(*m), m->GetDimX(), m->GetDimY());
+	Matrix matrix(MatrixOperation::CopyMatrixDouble(m), m.GetDimX(), m.GetDimY());
 
 	/*
 	for (int i = 0; i < vecEle.size(); i++) { //for each shell element
@@ -1374,13 +1374,13 @@ void ShellElement::AssembleCompleteGlobalMassMatrixThreads(const std::vector<She
 	}
 }
 
-Matrix ShellElement::GetMassMatrixNonZeroMassOnly(const Matrix *m, const std::vector<std::vector<int>>* totalMassDOFVec) {
+Matrix ShellElement::GetMassMatrixNonZeroMassOnly(Matrix& m, const std::vector<std::vector<int>>* totalMassDOFVec) {
 
 	int DOF = 6;
 	int count = 0;
 	int massCount = 0;
-	Matrix k11(m->GetDimX() - totalMassDOFVec->size());
-	Matrix matrix(MatrixOperation::CopyMatrixDouble(*m), m->GetDimX(), m->GetDimY());
+	Matrix k11(m.GetDimX() - totalMassDOFVec->size());
+	Matrix matrix(MatrixOperation::CopyMatrixDouble(m), m.GetDimX(), m.GetDimY());
 
 	/*
 	for (int i = 0; i < vecEle.size(); i++) { //for each shell element
@@ -1398,9 +1398,9 @@ Matrix ShellElement::GetMassMatrixNonZeroMassOnly(const Matrix *m, const std::ve
 	*/
 
 
-	for (int i = 0; i < m->GetDimX(); i++) { //for each shell element
-		if (m->GetMatrixDouble()[i][i] != 0) {
-			k11.GetMatrixDouble()[massCount][massCount] = m->GetMatrixDouble()[i][i];
+	for (int i = 0; i < m.GetDimX(); i++) { //for each shell element
+		if (m.GetMatrixDouble()[i][i] != 0) {
+			k11.GetMatrixDouble()[massCount][massCount] = m.GetMatrixDouble()[i][i];
 			massCount++;
 		}
 	}

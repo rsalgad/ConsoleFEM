@@ -58,55 +58,55 @@ Matrix Solver::CompleteStiffnessMatrixWithThreads(std::vector<Node> &listOfNodes
 
 //<summary>Calculates the complete stiffness matrix with threads based on the displacement based theory</summary>
 
-Matrix Solver::ReducedStiffnessMatrix(const Matrix* shellStiff, const StructureManager* structManager,const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecorder, double* highStiff)
+Matrix Solver::ReducedStiffnessMatrix(Matrix& shellStiff, const StructureManager* structManager,const PreAnalysisSetUp* setUp, AnalysisSpringRecorder* springRecorder, double* highStiff)
 {	
 	Matrix springStiff = ReducedSpringStiffMatrix(setUp->ReducedStiffMatrixSize(), structManager->SpringElements(), springRecorder);
-	Matrix redStiff = *shellStiff + springStiff;
+	Matrix redStiff = shellStiff + springStiff;
 
 	if (setUp->DispLoadDOFs() != 0) { //if there are displacement loads
 		DisplacementLoadStiffness(redStiff, setUp->DispLoadDOFs(), highStiff); //adds the big stiffness term to account for displacement loads, if any
 	}
 
-	return *shellStiff + springStiff;
+	return shellStiff + springStiff;
 }
 
-Matrix Solver::ReducedDynamicStiffnessMatrix(const PreAnalysisSetUp* setUp, const Matrix* mass, const Matrix* damp, Matrix* add, Matrix* mult2)
+Matrix Solver::ReducedDynamicStiffnessMatrix(const PreAnalysisSetUp* setUp, Matrix& mass, Matrix& damp, Matrix& add, Matrix& mult2)
 {
 	DynamicAnalysis* analysis = static_cast<DynamicAnalysis*>(setUp->Analysis());
 	double const1 = (1 - analysis->IntegrationMethod()->GetAlphaF()) * analysis->IntegrationMethod()->GetNewmarkGama() * analysis->IntegrationMethod()->GetWilsonTheta() * (*analysis->DeltaT());
 	double constM = 1 - analysis->IntegrationMethod()->GetAlphaM();
 	double const2 = analysis->IntegrationMethod()->GetNewmarkBeta() * pow(analysis->IntegrationMethod()->GetWilsonTheta() * (*analysis->DeltaT()), 2);
-	*mult2 = *mass * constM; //kept separate to be used in a subsequent iteration
-	*add = (*mult2 + (*damp) * const1); //kept separate so it can be used below
+	mult2 = mass * constM; //kept separate to be used in a subsequent iteration
+	add = (mult2 + (damp) * const1); //kept separate so it can be used below
 
-	return (*add) * (1 / const2);
+	return (add) * (1 / const2);
 }
 
-Matrix Solver::CalculateDynamicForce(const Matrix* prevDisp, const Matrix* prevVel, const Matrix* prevAcc, Matrix* add, const Matrix* damp, const Matrix* totMass, const Matrix* FInc, const Matrix* mRed, Matrix* add11, const PreAnalysisSetUp* setUp, const double* time)
+Matrix Solver::CalculateDynamicForce(Matrix& prevDisp, Matrix& prevVel, Matrix& prevAcc, Matrix& add, Matrix& damp, Matrix& totMass, Matrix& FInc, Matrix& mRed, Matrix& add11, const PreAnalysisSetUp* setUp, const double* time)
 {
 	DynamicAnalysis* analysis = static_cast<DynamicAnalysis*>(setUp->Analysis());
-	Matrix prevTerm = (*prevDisp * (1 / pow(analysis->IntegrationMethod()->GetWilsonTheta() * (*analysis->DeltaT()), 2)) + *prevVel * (1 / (analysis->IntegrationMethod()->GetWilsonTheta() * (*analysis->DeltaT()))) + *prevAcc * 0.5) * (1 / analysis->IntegrationMethod()->GetNewmarkBeta());
-	Matrix firstMatrix = (*add) * prevTerm;
+	Matrix prevTerm = (prevDisp * (1 / pow(analysis->IntegrationMethod()->GetWilsonTheta() * (*analysis->DeltaT()), 2)) + prevVel * (1 / (analysis->IntegrationMethod()->GetWilsonTheta() * (*analysis->DeltaT()))) + prevAcc * 0.5) * (1 / analysis->IntegrationMethod()->GetNewmarkBeta());
+	Matrix firstMatrix = (add) * prevTerm;
 
-	*add11 = (*prevVel + *prevAcc * (analysis->IntegrationMethod()->GetWilsonTheta() * (*analysis->DeltaT())) * (1 - analysis->IntegrationMethod()->GetAlphaF())); //kept separate to be used below
-	Matrix secondMatrix = *damp * *add11;
+	add11 = (prevVel + prevAcc * (analysis->IntegrationMethod()->GetWilsonTheta() * (*analysis->DeltaT())) * (1 - analysis->IntegrationMethod()->GetAlphaF())); //kept separate to be used below
+	Matrix secondMatrix = damp * add11;
 
-	Matrix thirdMatrix = *totMass * *prevAcc;
+	Matrix thirdMatrix = totMass * prevAcc;
 
 	Matrix load(1, 1);
 	Matrix prevLoad(1, 1);
 
 	if (analysis->Type() == AnalysisTypes::Seismic) {
 		SeismicLoad* sLoad = static_cast<SeismicLoad*>(analysis->Load());
-		load = (*totMass * SeismicLoad::GetSeismicLoadVector(sLoad, FInc, time)) * (-1);
+		load = (totMass * SeismicLoad::GetSeismicLoadVector(*sLoad, FInc, time)) * (-1);
 		double prevTime = *time - *analysis->DeltaT();
-		prevLoad = (*totMass * SeismicLoad::GetSeismicLoadVector(sLoad, FInc, &prevTime)) * (-1);
+		prevLoad = (totMass * SeismicLoad::GetSeismicLoadVector(*sLoad, FInc, &prevTime)) * (-1);
 	}
 	else if (analysis->Type() == AnalysisTypes::Impulse) {
 		ImpulseLoad* impLoad = static_cast<ImpulseLoad*>(analysis->Load());
-		load = *FInc * ImpulseLoad::LoadFromTime(impLoad, time);
+		load = FInc * ImpulseLoad::LoadFromTime(impLoad, time);
 		double prevTime = *time - *analysis->DeltaT();
-		prevLoad = *FInc * ImpulseLoad::LoadFromTime(impLoad, &prevTime);
+		prevLoad = FInc * ImpulseLoad::LoadFromTime(impLoad, &prevTime);
 	}
 
 	Matrix FInc1 = (load * (analysis->IntegrationMethod()->GetWilsonTheta() * (1 - analysis->IntegrationMethod()->GetAlphaF())));
@@ -118,7 +118,7 @@ Matrix Solver::CalculateDynamicForce(const Matrix* prevDisp, const Matrix* prevV
 		FInc2 = (prevLoad * (analysis->IntegrationMethod()->GetAlphaF()));
 	}
 	Matrix deltaF = FInc1 + FInc2;//kept separate to be used below
-	Matrix FIncDyn = deltaF - *mRed * analysis->IntegrationMethod()->GetAlphaF() * *prevDisp;
+	Matrix FIncDyn = deltaF - mRed * analysis->IntegrationMethod()->GetAlphaF() * prevDisp;
 	return FIncDyn + firstMatrix - secondMatrix - thirdMatrix;
 }
 
@@ -178,7 +178,7 @@ Matrix Solver::CompleteShellMassMatrixThreads(const StructureManager* structMana
 
 //<summary>Calculates the complete stiffness matrix of the shell elements with threads based on the force based theory</summary>
 Matrix Solver::ShellRestrictedStiffMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
-	int sizeRow = Support::TotalDOFsRestrained(structManager->Supports());
+	int sizeRow = *setUp->StiffMatrixSize() - *setUp->ReducedStiffMatrixSize();
 	int sizeCol = *setUp->StiffMatrixSize();
 	Matrix m(sizeRow, sizeCol);
 
@@ -204,7 +204,7 @@ Matrix Solver::ShellRestrictedStiffMatrix(const StructureManager* structManager,
 	return m;
 }
 
-Matrix Solver::ReducedSpringStiffMatrix(const int* redSize, const std::map<int, Spring3D*>* listOfSprings, const AnalysisSpringRecorder* springRecorder) {
+Matrix Solver::ReducedSpringStiffMatrix(const int* redSize, const std::map<int, Spring3D*>* listOfSprings, AnalysisSpringRecorder* springRecorder) {
 	if (listOfSprings->size() != 0) {
 		Matrix m = Spring3D::AssembleSpringGlobalMatrixOnReducedSizedMatrix(redSize, listOfSprings, springRecorder);
 		return m;
@@ -215,16 +215,16 @@ Matrix Solver::ReducedSpringStiffMatrix(const int* redSize, const std::map<int, 
 	}
 }
 
-Matrix Solver::ReducedRestrictStiffnessMatrix(const Matrix* shellStiff, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecorder)
+Matrix Solver::ReducedRestrictStiffnessMatrix(Matrix& shellStiff, const StructureManager* structManager, const PreAnalysisSetUp* setUp, AnalysisSpringRecorder* springRecorder)
 {
-	Matrix springStiff = ReducedSpringRestrictedStiffMatrix(setUp->ReducedStiffMatrixSize(), structManager->SpringElements(), springRecorder);
-	return *shellStiff + springStiff;
+	Matrix springStiff = ReducedSpringRestrictedStiffMatrix(setUp, structManager->SpringElements(), springRecorder);
+	return shellStiff + springStiff;
 }
 
-Matrix Solver::ReducedSpringRestrictedStiffMatrix(const int* redSize, const std::map<int, Spring3D*>* listOfSprings, const AnalysisSpringRecorder* springRecorder) {
+Matrix Solver::ReducedSpringRestrictedStiffMatrix(const PreAnalysisSetUp* setUp, const std::map<int, Spring3D*>* listOfSprings, AnalysisSpringRecorder* springRecorder) {
 	
 	if (listOfSprings->size() != 0) {
-		Matrix m = Spring3D::AssembleSpringGlobalRestrictedMatrixOnComplete(redSize, listOfSprings, springRecorder);
+		Matrix m = Spring3D::AssembleSpringGlobalRestrictedMatrixOnComplete(setUp, listOfSprings, springRecorder);
 		return m;
 	}
 	else {
@@ -241,16 +241,18 @@ void Solver::DisplacementLoadStiffness(Matrix& stiff, const std::vector<int>* di
 	}
 }
 
-Matrix Solver::ReducedForceMatrix(const Matrix* FConst, const Matrix* FIncr, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const int* step, const double* highStiff,  const AnalysisSpringRecorder* springRecord) {
-	Matrix F = (*FConst) + (*FIncr) * (*setUp->LoadFactors())[*step]; //adds the constant and incremental terms of the applied laods, considering the current loadstep
+Matrix Solver::ReducedForceMatrix(Matrix& FConst, Matrix& FIncr, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const int* step, const double* highStiff, AnalysisSpringRecorder* springRecord) {
+	Matrix F = (FConst) + (FIncr) * (*setUp->LoadFactors())[*step]; //adds the constant and incremental terms of the applied laods, considering the current loadstep
 	
 	if (setUp->DispLoadDOFs()->size() != 0) { //if there are displacement loads
-		DisplacementLoadForce(&F, structManager, setUp, springRecord, &(*setUp->LoadFactors())[*step], highStiff); //adds the big stiffness term to account for displacement loads, if any
+		DisplacementLoadForce(F, structManager, setUp, springRecord, &(*setUp->LoadFactors())[*step], highStiff); //adds the big stiffness term to account for displacement loads, if any
 	}
+
+	PlasticDisplacementLoadForce(F, structManager, setUp, springRecord);
 	return F;
 }
 
-void Solver::DisplacementLoadForce(const Matrix* force, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecord, const double* loadFraction, const double* highStiff) {
+void Solver::DisplacementLoadForce(Matrix& force, const StructureManager* structManager, const PreAnalysisSetUp* setUp, AnalysisSpringRecorder* springRecord, const double* loadFraction, const double* highStiff) {
 	int count = 0;
 
 	std::map<int, Support*>::const_iterator it = structManager->Supports()->begin();
@@ -259,48 +261,37 @@ void Solver::DisplacementLoadForce(const Matrix* force, const StructureManager* 
 		for (int j = 0; j < it->second->GetSupportVector().size(); j++) {
 			if (it->second->GetSupportVector()[j][1] != 0) { //no need to do this if the support is just a boundary condition
 				double dispLoad = it->second->GetSupportVector()[j][1];
-				force->GetMatrixDouble()[(*setUp->DispLoadDOFs())[count]][0] += (*highStiff) * dispLoad * (*loadFraction);
+				force.GetMatrixDouble()[(*setUp->DispLoadDOFs())[count]][0] += (*highStiff) * dispLoad * (*loadFraction);
 				count++;
 			}
 		}
 		it++;
 	}
-
-	PlasticDisplacementLoadForce(force, structManager, setUp, springRecord);
 }
 
-void Solver::PlasticDisplacementLoadForce(const Matrix* force, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const AnalysisSpringRecorder* springRecord) {
-	std::map<int, std::vector<double>> vec = springRecord->GetDisplacementMap().find("plasticDisp")->second.find("new")->second;
-	std::vector<int> plasticIndexes = Spring3D::GetPlasticDispIndexes(&vec, structManager, setUp->DOF());
+void Solver::PlasticDisplacementLoadForce(Matrix& force, const StructureManager* structManager, const PreAnalysisSetUp* setUp, AnalysisSpringRecorder* springRecord) {
+	std::vector<std::vector<double*>>* vec = springRecord->GetNewPlasticDisp();
+	std::vector<int> plasticIndexes = Spring3D::GetPlasticDispIndexes(*vec, structManager, setUp->DOF());
 	int count2 = 0;
-	std::map<int, std::vector<double>>::iterator it = vec.begin();
 
-	while (it != vec.end()) {
-		
-		std::vector<int> matPos = structManager->SpringElements()->find(it->first)->second->GetListOfGlobalMaterialDirections();
-		std::map<int, std::vector<double>>::iterator it2 = vec.begin();
-		for (int j = 0; j < it->second.size(); j++) {
-			if (it->second[j] != 0) { //no need to do this if no plastic disp
-				double dispLoad = it->second[j];
-				double stiff = structManager->SpringElements()->find(it->first)->second->GetListOfMaterials()[matPos[j]]->GetSecantStiffnessFromDisplacement(springRecord->GetDisplacementMap().find("disp")->second.find("new")->second.find(it->first)->second[j],
-					springRecord->GetDisplacementMap().find("plasticDisp")->second.find("new")->second.find(it->first)->second[j], 
-					springRecord->GetDisplacementMap().find("maxDisp")->second.find("new")->second.find(it->first)->second[j],
-					springRecord->GetDisplacementMap().find("minDisp")->second.find("new")->second.find(it->first)->second[j], 
-					springRecord->GetStagesMap().find("list")->second.find(it->first)->second[j],
-					springRecord->GetStagesMap().find("new")->second.find(it->first)->second[j],
-					springRecord->GetDisplacementMap().find("unlDisp")->second.find("new")->second.find(it->first)->second[j], 
-					springRecord->GetDisplacementMap().find("relDisp")->second.find("new")->second.find(it->first)->second[j]);
+	for (int i = 0; i < vec->size(); i++) {
+		std::vector<int> matPos = structManager->SpringElements()->find(i + 1)->second->GetListOfGlobalMaterialDirections();
+		for (int j = 0; j < vec[i].size(); j++) {
+			if (*(*vec)[i][j] != 0) { //no need to do this if no plastic disp
+				double dispLoad = *(*vec)[i][j];
+				double stiff = structManager->SpringElements()->find(i + 1)->second->GetListOfMaterials()[matPos[j]]->GetSecantStiffnessFromDisplacement(*(*springRecord->GetNewDisp())[i][j],
+					*(*springRecord->GetNewPlasticDisp())[i][j], *(*springRecord->GetNewMaxDisp())[i][j], *(*springRecord->GetNewMinDisp())[i][j], *(*springRecord->GetListStages())[i][j],
+					*(*springRecord->GetNewStages())[i][j], *(*springRecord->GetNewUnlDisp())[i][j], *(*springRecord->GetNewRelDisp())[i][j]);
 				//double force2 = listOfSpring[i].GetListOfMaterials()[matPos[j]]->GetForceFromDisplacement(dispLoad, listOfMaxDisp[i][j], listOfMinDisp[i][j]);
 				double force2 = stiff * dispLoad;
-				force->GetMatrixDouble()[plasticIndexes[count2]][0] += force2; //no *loadfraction since I want to apply the entire plastic disp at once
+				force.GetMatrixDouble()[plasticIndexes[count2]][0] += force2; //no *loadfraction since I want to apply the entire plastic disp at once
 				count2++;
 			}
 		}
-		it++;
 	}
 }
 
-Matrix Solver::CalculateNaturalFrequenciesAndModeShapes(const Matrix* stiffMatrix, const Matrix* massMatrix, std::vector<double>* natFreq, const std::vector<std::vector<int>>* totalMassDOFVec, const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
+Matrix Solver::CalculateNaturalFrequenciesAndModeShapes(Matrix& stiffMatrix, Matrix& massMatrix, std::vector<double>* natFreq, const std::vector<std::vector<int>>* totalMassDOFVec, const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
 	
 	Matrix reducedStiff = ShellElement::CondensedReducedStiffMatrixForModal(stiffMatrix, totalMassDOFVec);
 	
@@ -330,7 +321,7 @@ Matrix Solver::CalculateNaturalFrequenciesAndModeShapes(const Matrix* stiffMatri
 		}
 	}
 
-	Matrix m = Solver::GetTotalModalMatrix(&modeShapes, structManager, setUp); //Creates a matrix similar to modeShapes, but will all DOFS, not only the DOFS with masses
+	Matrix m = Solver::GetTotalModalMatrix(modeShapes, structManager, setUp); //Creates a matrix similar to modeShapes, but will all DOFS, not only the DOFS with masses
 	return m;
 }
 
@@ -349,14 +340,14 @@ std::vector<double> Solver::RayleighDampingConstants(const PreAnalysisSetUp* set
 	return vec;
 }
 
-Matrix Solver::RayleighDampingMatrix(const Matrix* m, const Matrix* k, const std::vector<double>* constants) {
+Matrix Solver::RayleighDampingMatrix(Matrix& m, Matrix& k, const std::vector<double>* constants) {
 
-	Matrix c = *m * (*constants)[0] + *k * (*constants)[1];
+	Matrix c = m * (*constants)[0] + k * (*constants)[1];
 
 	return c;
 }
 
-Matrix Solver::GetTotalModalMatrix(const Matrix* m, const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
+Matrix Solver::GetTotalModalMatrix(Matrix& m, const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
 	//This function returns the full displacement vector from the reduced version
 	int count = 0;
 	Matrix disp(*setUp->StiffMatrixSize(), 1);
@@ -381,19 +372,19 @@ Matrix Solver::GetTotalModalMatrix(const Matrix* m, const StructureManager* stru
 
 	int index = 0;
 	int i = 0;
-	for (int k = 0; k < m->GetDimY(); k++) {
+	for (int k = 0; k < m.GetDimY(); k++) {
 		while (i < *setUp->StiffMatrixSize()) {
 			for (int j = 0; j < 3; j++) { //only for translation DOFs
 				bool notSup = !(std::find(vecPos.begin(), vecPos.end(), i + j) != vecPos.end());
 				int val = i + j;
 				if (notSup && (HasDOFMass(&val, structManager, setUp->DOF() ) || Mass::HasDOFAppliedMass(&val, structManager->Masses(), setUp->DOF()))) { //if it has mass
-					disp.GetMatrixDouble()[i + j][0] = m->GetMatrixDouble()[index][k];
+					disp.GetMatrixDouble()[i + j][0] = m.GetMatrixDouble()[index][k];
 					index++;
 				}
 			}
 			i += 6;
 		}
-		ShellElement::GetNinthNodeDisplacement(&disp, structManager->ShellElements(), setUp->DOF());
+		ShellElement::GetNinthNodeDisplacement(disp, structManager->ShellElements(), setUp->DOF());
 		ans = MatrixOperation::AddMatrixRight(ans, disp);
 		i = 0;
 		index = 0;

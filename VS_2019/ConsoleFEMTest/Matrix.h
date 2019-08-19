@@ -6,31 +6,32 @@ class Matrix
 public:
 	Matrix();
 	~Matrix();
-	Matrix(int dimX, int dimY);
-	Matrix(int dim);
-	Matrix(double** matrix, int dimX, int dimY);
-	Matrix(double** matrix, int dim);
-	Matrix(const Matrix &obj);
-	std::string ToString();
-	Matrix operator +(Matrix const &m2);
-	void operator +=(Matrix const &m2);
-	Matrix operator -(Matrix const &m2);
-	Matrix operator *(Matrix const &m2);
-	Matrix operator *(double const &d);
-	Matrix operator *(int const &n);
+	Matrix(const int dimX, const int dimY);
+	Matrix(const int dim);
+	Matrix(double** matrix, const int dimX, const int dimY);
+	Matrix(double** matrix, const int dim);
+	Matrix(const const Matrix &obj);
+	std::string ToString() const;
+	Matrix operator +(Matrix const &m2) const;
+	void operator +=(Matrix const &m2) const;
+	Matrix operator -(Matrix const &m2) const;
+	Matrix operator *(Matrix const &m2) const;
+	Matrix operator *(double const &d) const;
+	Matrix operator *(int const &n) const;
 	void operator =(Matrix const &m2);
-	double** GetMatrixDouble() const;
+	double** GetMatrixDouble() const; //could make this const (read-only) and create another function like "ModifyMatrixDouble" that can actually change the values of double**
+	double** MatrixDouble();
 	void SetMatrixDouble(double** matrix);
 	void DestroyMatrixDouble();
 	int GetDimX() const;
 	int GetDimY() const;
-	void SetDimensions(int dimX, int dimY);
-	void Print();
-	double Sparsity();
+	void SetDimensions(const int dimX, const int dimY);
+	void Print() const;
+	double Sparsity() const;
 
-	static double** CreateMatrixDouble(int dimX, int dimY);
-	static double** CreateMatrixDouble(int dim);
-	static void DestroyMatrixDouble(double** d, int dimX);
+	static double** CreateMatrixDouble(const int dimX, const int dimY);
+	static double** CreateMatrixDouble(const int dim);
+	static void DestroyMatrixDouble(double** d, const int dimX);
 
 private:
 	double** _matrix;

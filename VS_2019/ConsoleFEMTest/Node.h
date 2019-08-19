@@ -1,6 +1,8 @@
 #pragma once
-#include <vector>
+//#include "pch.h"
 #include <string>
+#include <vector>
+
 
 class Node
 {
@@ -9,14 +11,14 @@ public:
 	Node(int ID, double x, double y, double z);
 	Node(int ID, double x, double y, double z, double rx, double ry, double rz);
 	~Node();
-	int GetID();
-	double GetX();
-	double GetY();
-	double GetZ();
-	double GetRx();
-	double GetRy();
-	double GetRz();
-	std::string ToString();
+	const int* GetID() const;
+	const double* GetX() const;
+	const double* GetY() const;
+	const double* GetZ() const;
+	const double* GetRx() const;
+	const double* GetRy() const;
+	const double* GetRz() const;
+	std::string ToString() const;
 
 	static Node FindNodeByID(int &ID, std::vector<Node> &vecNode);
 	static Node FindNodeByCoordinates(double x, double y, double z, std::vector<Node>& vecNode);

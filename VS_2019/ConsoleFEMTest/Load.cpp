@@ -1,10 +1,4 @@
 #include "pch.h"
-#include "Load.h"
-#include "Support.h"
-#include "MatrixOperation.h"
-#include <vector>
-#include <iostream>
-#include <string>
 
 
 Load::Load()
@@ -22,6 +16,64 @@ Load::Load(int ID, int nodeID, std::string status)
 	_ID = ID;
 	_nodeID = nodeID;
 	_status = status;
+}
+
+std::string Load::ToString()
+{
+	std::string load = "";
+	load += "(";
+	load += std::to_string(_ID);
+	load += ")";
+	load += "(";
+	load += "Node: ";
+	load += std::to_string(_nodeID);
+	load += ", ";
+	load += "Load Type: ";
+	load += _status;
+	load += ", ";
+	for (int i = 0; i < _load[0].size(); i++) {
+		
+		if (i != 0)
+		{
+			load += ", ";
+		}
+		
+		load += "Component ";
+		load += (i + 1);
+		load += ": ";
+		int dir = _load[i][0];
+		
+		switch (dir)
+		{
+			case 1:
+				load += "Fx = ";
+				break;
+			case 2: 
+				load += "Fy = ";
+				break;
+			case 3:
+				load += "Fz = ";
+				break;
+			case 4:
+				load += "Mx = ";
+				break;
+			case 5:
+				load += "My = ";
+				break;
+			case 6:
+				load += "Mz = ";
+				break;
+			default:
+				break;
+		}
+
+		load += std::to_string(_load[i][1]);
+
+	}
+	
+	load += ")";
+
+	return load;
 }
 
 int Load::GetID()
@@ -68,7 +120,7 @@ void Load::SetMz(double val) {
 	_load.push_back(vec);
 }
 
-std::vector<std::vector<double>> Load::GetLoadVector() {
+std::vector<std::vector<double>> Load::GetLoadVector() const {
 	return _load;
 }
 
@@ -114,38 +166,46 @@ void Load::SortByNodeID(std::vector<Load> &load) {
 	load = load1;
 }
 
-Matrix Load::AssembleLoadMatrix(std::vector<Node> &vecNode, std::vector<Load> &vecLoad) {
+Matrix Load::AssembleLoadMatrix(const StructureManager* structManager, const PreAnalysisSetUp* setUp) {
 	// Assemble the total load matrix. The vector of loads MUST be already sorted when it is passed.
-	int DOF = 6; //For Shell Elements
-	int size = vecNode.size() * DOF;
-	double** complete = Matrix::CreateMatrixDouble(size, 1);
-	for (int i = 0; i < vecLoad.size(); i++) { //for each Load instance
-		int node = vecLoad[i].GetNode(); //get node ID
-		for (int j = 0; j < vecLoad[i].GetLoadVector().size(); j++) { //for each load vector
-			int dir = vecLoad[i].GetLoadVector()[j][0];
-			double load = vecLoad[i].GetLoadVector()[j][1];
-			complete[(node - 1) * DOF + (dir - 1)][0] = load;
+	double** complete = Matrix::CreateMatrixDouble(*setUp->StiffMatrixSize(), 1);
+	
+	std::map<int, Load*>::const_iterator it = structManager->Loads()->begin();		
+	//for each Load instance
+	while (it != structManager->Loads()->end()) {
+		int node = it->second->GetNode(); //get node ID
+		
+		 //for each load vector
+		for (int j = 0; j < it->second->GetLoadVector().size(); j++) {
+			int dir = it->second->GetLoadVector()[j][0];
+			double load = it->second->GetLoadVector()[j][1];
+			complete[(node - 1) * (*setUp->DOF()) + (dir - 1)][0] = load;
 		}
+		it++;
 	}
-	return Matrix(complete, size, 1);
+	return Matrix(complete, *setUp->StiffMatrixSize(), 1);
 }
 
-Matrix Load::AssembleLoadMatrixWithFlag(std::vector<Node> &vecNode, std::vector<Load> &vecLoad, std::string flag) {
+Matrix Load::AssembleLoadMatrixWithFlag(const StructureManager* structManager, const PreAnalysisSetUp* setUp, std::string flag) {
 	// Assemble the total load matrix. The vector of loads MUST be already sorted when it is passed.
-	int DOF = 6; //For Shell Elements
-	int size = vecNode.size() * DOF;
-	double** complete = Matrix::CreateMatrixDouble(size, 1);
-	for (int i = 0; i < vecLoad.size(); i++) { //for each Load instance
-		int node = vecLoad[i].GetNode(); //get node ID
-		for (int j = 0; j < vecLoad[i].GetLoadVector().size(); j++) { //for each load vector
-			int dir = vecLoad[i].GetLoadVector()[j][0];
-			double load = vecLoad[i].GetLoadVector()[j][1];
-			if (vecLoad[i].GetStatus() == flag) {
-				complete[(node - 1) * DOF + (dir - 1)][0] = load;
+	double** complete = Matrix::CreateMatrixDouble(*setUp->StiffMatrixSize(), 1);
+	
+	std::map<int, Load*>::const_iterator it = structManager->Loads()->begin();
+	//for each Load instance
+	while (it != structManager->Loads()->end()) {
+		if (it->second->GetStatus() == flag) { //if flag matches
+			int node = it->second->GetNode(); //get node ID
+
+			//for each load vector
+			for (int j = 0; j < it->second->GetLoadVector().size(); j++) {
+				int dir = it->second->GetLoadVector()[j][0];
+				double load = it->second->GetLoadVector()[j][1];
+				complete[(node - 1) * (*setUp->DOF()) + (dir - 1)][0] = load;
 			}
 		}
+		it++;
 	}
-	return Matrix(complete, size, 1);
+	return Matrix(complete, *setUp->StiffMatrixSize(), 1);
 }
 
 Matrix Load::AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Support> &vecSup) {
@@ -166,22 +226,30 @@ Matrix Load::AssembleDispLoadMatrix(std::vector<Node> &vecNode, std::vector<Supp
 	return Matrix(complete, size, 1);
 }
 
-Matrix Load::GetReducedLoadMatrix(Matrix &loadMatrix, std::vector<Support> &vecSup) {
+Matrix Load::GetReducedLoadMatrix(const Matrix& loadMatrix, const std::map<int, Support*>* mapSup, const int* DOF) {
 	// Returns the load matrix minus the rows associated with support conditions.
 	// The vector of loads MUST be already sorted when it is passed.
 
-	int DOF = 6;
 	int remove = 0; //keeps track of the amount of loads that were removed from the matrix
 	Matrix reduced(MatrixOperation::CopyMatrixDouble(loadMatrix), loadMatrix.GetDimX(), loadMatrix.GetDimY());
-	for (int i = 0; i < vecSup.size(); i++) { //for each Support
-		int node = vecSup[i].GetNode();
-		for (int j = 0; j < vecSup[i].GetSupportVector().size(); j++) { // for each direction of support
-			if (vecSup[i].GetSupportVector()[j][1] == 0) { //only do this if the type of support is really a constraint, not a displacement load
-				int dir = vecSup[i].GetSupportVector()[j][0];
-				reduced = MatrixOperation::DeleteRow(reduced, (node - 1) * DOF + (dir - 1) - remove);
+	
+	std::map<int, Support*>::const_iterator it = mapSup->begin();
+	
+	//for each Support
+	while (it != mapSup->end()) {
+		int node = it->second->GetNode(); //node ID
+
+		// for each direction of support
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) { 
+			
+			//only do this if the type of support is really a constraint (i.e., = 0), not a displacement load
+			if (it->second->GetSupportVector()[j][1] == 0) { 
+				int dir = it->second->GetSupportVector()[j][0];
+				reduced = MatrixOperation::DeleteRow(reduced, (node - 1) * *DOF + (dir - 1) - remove);
 				remove++;
 			}
 		}
+		it++;
 	}
 	return reduced;
 }
@@ -202,6 +270,7 @@ std::vector<int> Load::IdentifyIncrementalLoads(std::vector<Load> &vecLoad) {
 	return indexes;
 }
 
+/* NEVER USED
 Matrix Load::MultiplyIncrementalTerms(Matrix &redLoadMatrix, std::vector<int> &incIndex, std::vector<Support> &vecSups, double mult) {
 
 	Matrix newMatrix(redLoadMatrix.GetDimX(), 1);
@@ -225,58 +294,59 @@ Matrix Load::MultiplyIncrementalTerms(Matrix &redLoadMatrix, std::vector<int> &i
 	}
 	return newMatrix;
 }
+*/
 
-Matrix Load::GetTotalForceNotOrganized(Matrix &m, Matrix &m2, std::vector<Support> &vecSup, std::vector<Node> &vecNode) {
-	int DOF = 6;
-	Matrix d(vecNode.size()*DOF, 1);
+Matrix Load::GetTotalForceNotOrganized(Matrix& force, Matrix& react, const StructureManager* structManager, const int* stiffSize) {
+	Matrix d(*stiffSize, 1);
 
-	for (int i = 0; i < m.GetDimX(); i++) {
-		d.GetMatrixDouble()[i][0] = m.GetMatrixDouble()[i][0];
+	for (int i = 0; i < force.GetDimX(); i++) {
+		d.GetMatrixDouble()[i][0] = force.GetMatrixDouble()[i][0];
 	}
 
 	
-	for (int i = 0; i < d.GetDimX() - m.GetDimX(); i++) {
-		d.GetMatrixDouble()[m.GetDimX() + i][0] = m2.GetMatrixDouble()[i][0];
+	for (int i = 0; i < d.GetDimX() - force.GetDimX(); i++) {
+		d.GetMatrixDouble()[force.GetDimX() + i][0] = react.GetMatrixDouble()[i][0];
 	}
 	
 	return d;
 }
 
-Matrix Load::GetTotalForceMatrix(Matrix &m, std::vector<Support> &vecSup, std::vector<Node> &vecNode, double& biggest, double loadFraction) {
+Matrix Load::GetTotalForceMatrix(Matrix& force,Matrix& react, const StructureManager* structManager, const PreAnalysisSetUp* setUp, const double* biggest, const double* loadFraction) {
 	//This function returns the full displacement vector from the reduced version
-	int DOF = 6; // for shell elements
-	int size = vecNode.size() * DOF;
-
-	double** disp = Matrix::CreateMatrixDouble(size, 1);
+	Matrix m = GetTotalForceNotOrganized(force, react, structManager, setUp->StiffMatrixSize());
+	double** disp = Matrix::CreateMatrixDouble(*setUp->StiffMatrixSize(), 1);
 
 	std::vector<int> vecPos;
 	std::vector<int> globalPosOfDispLoad;
 	std::vector<double> dispLoad;
 	std::vector<double> vecForce;
-	int startOfRestricted = vecNode.size()*DOF - Support::TotalDOFsRestrained(vecSup);
+	int startOfRestricted = *setUp->ReducedStiffMatrixSize();
 	int count = 0;
 
-	for (int i = 0; i < vecSup.size(); i++) //for each support
-	{
-		for (int j = 0; j < vecSup[i].GetSupportVector().size(); j++) { //this will store all the global positions and displacement values in vectors
-			int nodeID = vecSup[i].GetNode();
-			int dir = vecSup[i].GetSupportVector()[j][0];
-			int pos = (nodeID - 1)*DOF + (dir - 1);
-			if (vecSup[i].GetSupportVector()[j][1] == 0) { //only do this if the support is a boundary condition
+	std::map<int, Support*>::const_iterator it = structManager->Supports()->begin();
+
+	while (it != structManager->Supports()->end()) {//for each support
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) { //this will store all the global positions and displacement values in vectors
+			int nodeID = it->second->GetNode();
+			int dir = it->second->GetSupportVector()[j][0];
+			int pos = (nodeID - 1) * (*setUp->DOF()) + (dir - 1);
+			if (it->second->GetSupportVector()[j][1] == 0) { //only do this if the support is a boundary condition
 				double force = m.GetMatrixDouble()[startOfRestricted + count][0]; //get the reaction on the support
 				vecPos.emplace_back(pos);
 				vecForce.emplace_back(force);
 				count++;
 			}
 			else {
-				dispLoad.push_back(vecSup[i].GetSupportVector()[j][1]); //if support is not a fixed boundary, get the applied displacement
+				dispLoad.push_back(it->second->GetSupportVector()[j][1]); //if support is not a fixed boundary, get the applied displacement
 				globalPosOfDispLoad.push_back(pos);
 			}
 		}
+
+		it++;
 	}
 
 	int index = 0;
-	for (int i = 0; i < size; i++) { //for each term of the global D matrix
+	for (int i = 0; i < *setUp->StiffMatrixSize(); i++) { //for each term of the global D matrix
 		if (std::find(vecPos.begin(), vecPos.end(), i) != vecPos.end()) {//if DOF = i a fixed boundary support type
 			disp[i][0] = vecForce[index]; //add the reaction
 			index++;
@@ -287,12 +357,12 @@ Matrix Load::GetTotalForceMatrix(Matrix &m, std::vector<Support> &vecSup, std::v
 	}
 
 	
-	double highStiff = biggest * pow(10, 6);
+	double highStiff = *biggest * pow(10, 6);
 	for (int i = 0; i < globalPosOfDispLoad.size(); i++) { //remove the fictitious force applied due to displacement load
-		disp[globalPosOfDispLoad[i]][0] -= highStiff * dispLoad[i] * loadFraction;
+		disp[globalPosOfDispLoad[i]][0] -= highStiff * dispLoad[i] * *loadFraction;
 	}
 	
-	return Matrix(disp, size, 1);
+	return Matrix(disp, *setUp->StiffMatrixSize(), 1);
 }
 
 double Load::DefineTotalLoadSteps(std::string type, int &specStep, int cyclicRepeat, double totalTime, double deltaT) {
@@ -368,6 +438,36 @@ double Load::DefineLoadFractionAtLoadStep(std::string type, int& step, int& tota
 
 double Load::SampleDynamicForceFunction(double amplitude, double period, double phase, double t) {
 	return amplitude * sin(period * t + phase);
+}
+
+std::map<int, Load> Load::GetNewLoads(const std::vector<int>* vec, Matrix& totalForce, const int* DOF)
+{
+	std::map<int, Load> newMap;
+	int count = 1;
+	for (int i = 0; i < vec->size(); i++) { //for each node we have in the problem
+		int nodeID = (*vec)[i];
+		Matrix forces = GetForceByNodeID(&nodeID, totalForce, DOF);
+		Load l(i + 1, nodeID);
+		l.SetFx(forces.GetMatrixDouble()[0][0]);
+		l.SetFy(forces.GetMatrixDouble()[1][0]);
+		l.SetFz(forces.GetMatrixDouble()[2][0]);
+		l.SetMx(forces.GetMatrixDouble()[3][0]);
+		l.SetMy(forces.GetMatrixDouble()[4][0]);
+		l.SetMz(forces.GetMatrixDouble()[5][0]);
+		newMap.insert(std::pair<int, Load>(i + 1, l));
+		count++;
+	}
+	return newMap;
+}
+
+Matrix Load::GetForceByNodeID(int const* ID, Matrix& totalForceMatrix, const int* DOF)
+{
+	Matrix m(*DOF, 1);
+
+	for (int i = 0; i < *DOF; i++) {
+		m.GetMatrixDouble()[i][0] = totalForceMatrix.GetMatrixDouble()[(*ID - 1) * (*DOF) + i][0];
+	}
+	return m;
 }
 
 Load::~Load()

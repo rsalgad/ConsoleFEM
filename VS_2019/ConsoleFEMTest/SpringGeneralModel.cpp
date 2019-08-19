@@ -1,6 +1,4 @@
 #include "pch.h"
-#include "SpringGeneralModel.h"
-#include <math.h>
 
 // This Material Model is said to be "General" because it is assumed that both shear and out-of-plane will have similar shapes and parameters
 SpringGeneralModel::SpringGeneralModel(int ID, double iniStiff, double dMax, double fMax, double degStiff, double fRes, double dUlt, double unlStiff, double fUnl, double conStiff, double relStiff)
@@ -300,6 +298,43 @@ double SpringGeneralModel::GetForceFromDisplacement(double disp, double maxD, do
 std::string SpringGeneralModel::GetType()
 {
 	return "Spring-General";
+}
+
+std::string SpringGeneralModel::ToString()
+{
+	std::string str = "";
+	str += "(";
+	str += std::to_string(_ID);
+	str += ")";
+	str += "(";
+	str += "Initial Stiff = ";
+	str += std::to_string(_iniStiff);
+	str += ", ";
+	str += "Peak Displacement = ";
+	str += std::to_string(_dMax);
+	str += ", ";
+	str += "Peak Force = ";
+	str += std::to_string(_fMax);
+	str += ", ";
+	str += "Residual Force = ";
+	str += std::to_string(_fRes);
+	str += ", ";
+	str += "Ultimate Displacement = ";
+	str += std::to_string(_dUlt);
+	str += ", ";
+	str += "Unload Stiffness = ";
+	str += std::to_string(_unlStiff);
+	str += ", ";
+	str += "Unload Force = ";
+	str += std::to_string(_fUnl);
+	str += ", ";
+	str += "Connecting Stiffness = ";
+	str += std::to_string(_conStiff);
+	str += ", ";
+	str += "Reload Stiffness = ";
+	str += std::to_string(_relStiff);
+	str += ")";
+	return str;
 }
 
 bool SpringGeneralModel::IsConnectingFromUnload(double disp, double maxD, double prevDisp) {

@@ -1,8 +1,4 @@
 #include "pch.h"
-#include "ElasticMaterial.h"
-#include <vector>
-#include <string>
-
 
 ElasticMaterial::ElasticMaterial()
 {
@@ -32,6 +28,22 @@ double ElasticMaterial::GetPoisson()
 std::string ElasticMaterial::GetType()
 {
 	return "Elastic";
+}
+
+std::string ElasticMaterial::ToString()
+{
+	std::string str = "";
+	str += "(";
+	str += std::to_string(_ID);
+	str += ")";
+	str += "(";
+	str += "Ex = ";
+	str += _E;
+	str += ", ";
+	str += "Poisson = ";
+	str += _v;
+	str += ")";
+	return str;
 }
 
 ElasticMaterial ElasticMaterial::FindElasticMaterialByID(std::vector<ElasticMaterial> listOfShellMaterials, int ID) {

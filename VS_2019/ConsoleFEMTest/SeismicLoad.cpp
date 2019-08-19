@@ -1,8 +1,4 @@
 #include "pch.h"
-#include "SeismicLoad.h"
-#include "Matrix.h"
-#include <iostream>
-
 
 SeismicLoad::SeismicLoad()
 {
@@ -46,7 +42,7 @@ void SeismicLoad::SetRecordZ(std::vector<double> record)
 	_directions.push_back('z');
 }
 
-double SeismicLoad::LoadFromTime(double t, char dir) {
+double SeismicLoad::LoadFromTime(double t, char dir) const{
 	int index = GetIndexOfDirection(dir);
 	double g = 9.8 * 1000;
 	if (index != -1) {
@@ -90,7 +86,7 @@ double SeismicLoad::LoadFromTime(double t, char dir) {
 
 }
 
-int SeismicLoad::GetIndexOfDirection(char dir) {
+int SeismicLoad::GetIndexOfDirection(char dir) const {
 	int index = -1;
 	for (int j = 0; j < _directions.size(); j++) {
 		if (_directions[j] == dir) {
@@ -100,20 +96,25 @@ int SeismicLoad::GetIndexOfDirection(char dir) {
 	return index;
 }
 
+std::string SeismicLoad::GetType()
+{
+	return std::string();
+}
 
 
-Matrix SeismicLoad::GetSeismicLoadVector(SeismicLoad &sLoad, Matrix &FInc, double t) {
+
+Matrix SeismicLoad::GetSeismicLoadVector(const SeismicLoad& sLoad, Matrix& FInc, const double* t) {
 	Matrix ans(FInc.GetDimX(), 1);
 
 	double xLoad, yLoad, zLoad;
 	if (sLoad.GetIndexOfDirection('x') != -1) {
-		xLoad = sLoad.LoadFromTime(t, 'x');
+		xLoad = sLoad.LoadFromTime(*t, 'x');
 	}
 	if (sLoad.GetIndexOfDirection('y') != -1) {
-		yLoad = sLoad.LoadFromTime(t, 'y');
+		yLoad = sLoad.LoadFromTime(*t, 'y');
 	}
 	if (sLoad.GetIndexOfDirection('z') != -1) {
-		zLoad = sLoad.LoadFromTime(t, 'z');
+		zLoad = sLoad.LoadFromTime(*t, 'z');
 	}
 
 	for (int i = 0; i < FInc.GetDimX(); i++) {

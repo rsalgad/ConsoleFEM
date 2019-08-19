@@ -1,18 +1,21 @@
 #pragma once
+//#include "pch.h"
+#include "DynamicLoad.h"
 #include <vector>
+#include <string>
 
-class ImpulseLoad
+class ImpulseLoad : public DynamicLoad
 {
 public:
 	ImpulseLoad();
-	std::vector<std::vector<double>> GetPoints();
+	std::vector<std::vector<double>> GetPoints() const;
 	void SetPoints(std::vector<std::vector<double>> points);
-	
-	static double LoadFromTime(ImpulseLoad &impLoad, double t);
+	std::string GetType() override;
+
+	static double LoadFromTime(const ImpulseLoad* impLoad, const double* t);
 	~ImpulseLoad();
 
 private:
-
 	std::vector<std::vector<double>> _points;
 };
 

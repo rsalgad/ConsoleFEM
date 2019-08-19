@@ -1,6 +1,4 @@
 #include "pch.h"
-#include <iostream>
-#include "OrthotropicElasticMaterial.h"
 
 
 OrthotropicElasticMaterial::OrthotropicElasticMaterial()
@@ -64,12 +62,51 @@ std::string OrthotropicElasticMaterial::GetType()
 	return "Orthotropic-Elastic";
 }
 
-OrthotropicElasticMaterial OrthotropicElasticMaterial::FindElasticMaterialByID(std::vector<OrthotropicElasticMaterial> listOfShellMaterials, int ID) {
-	for (int i = 0; i < listOfShellMaterials.size(); i++) {
-		if (listOfShellMaterials[i].GetID() == ID) {
-			return listOfShellMaterials[i];
+std::string OrthotropicElasticMaterial::ToString()
+{
+	std::string str = "";
+	str += "(";
+	str += std::to_string(_ID);
+	str += ")";
+	str += "(";
+	str += "Ex = ";
+	str += _Ex;
+	str += ", ";
+	str += "Ey = ";
+	str += _Ey;
+	str += ", ";
+	str += "Ex = ";
+	str += _Ex;
+	str += ", ";
+	str += "Vxy = ";
+	str += _vxy;
+	str += ", ";
+	str += "Gxy = ";
+	str += _Gxy;
+	str += ", ";
+	str += "Gyz = ";
+	str += _Gyz;
+	str += ", ";
+	str += "Gxz = ";
+	str += _Gxz;
+	str += ")";
+	return str;
+}
+
+OrthotropicElasticMaterial* OrthotropicElasticMaterial::FindElasticMaterialByID(const std::map<int, MaterialModel*>* listOfMaterials, int ID) {
+	
+	std::map<int, MaterialModel*>::const_iterator it = listOfMaterials->begin();
+	
+	while (it != listOfMaterials->end()) {//for each material
+		if (it->second->GetType() == "Orthotropic-Elastic") {
+			if (it->second->GetID() == ID) {
+				OrthotropicElasticMaterial* mat = static_cast<OrthotropicElasticMaterial*>(it->second);
+				return mat;
+			}
 		}
+		it++;
 	}
+	return nullptr;
 }
 
 OrthotropicElasticMaterial::~OrthotropicElasticMaterial()

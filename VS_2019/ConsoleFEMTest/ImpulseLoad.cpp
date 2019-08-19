@@ -1,12 +1,12 @@
 #include "pch.h"
-#include "ImpulseLoad.h"
 
 
 ImpulseLoad::ImpulseLoad()
 {
+
 }
 
-std::vector<std::vector<double>> ImpulseLoad::GetPoints()
+std::vector<std::vector<double>> ImpulseLoad::GetPoints() const
 {
 	return _points;
 }
@@ -16,15 +16,20 @@ void ImpulseLoad::SetPoints(std::vector<std::vector<double>> points)
 	_points = points;
 }
 
-double ImpulseLoad::LoadFromTime(ImpulseLoad &impLoad, double t) {
+std::string ImpulseLoad::GetType()
+{
+	return std::string();
+}
+
+double ImpulseLoad::LoadFromTime(const ImpulseLoad* impLoad,const double* t) {
 	
-	if (t <= impLoad.GetPoints()[0][0]) {
-		return impLoad.GetPoints()[0][1] * t / impLoad.GetPoints()[0][0];
+	if (*t <= impLoad->GetPoints()[0][0]) {
+		return impLoad->GetPoints()[0][1] * (*t) / impLoad->GetPoints()[0][0];
 	}
 	
-	for (int i = 0; i < impLoad.GetPoints().size() - 1; i++) {
-		if (t > impLoad._points[i][0] && t <= impLoad._points[i + 1][0]) {
-			return (impLoad.GetPoints()[i][1] * (impLoad.GetPoints()[i + 1][0] - t) + impLoad.GetPoints()[i + 1][1] * (t - impLoad.GetPoints()[i][0])) / (impLoad.GetPoints()[i + 1][0] - impLoad.GetPoints()[i][0]);
+	for (int i = 0; i < impLoad->GetPoints().size() - 1; i++) {
+		if (*t > impLoad->GetPoints()[i][0] && *t <= impLoad->GetPoints()[i + 1][0]) {
+			return (impLoad->GetPoints()[i][1] * (impLoad->GetPoints()[i + 1][0] - *t) + impLoad->GetPoints()[i + 1][1] * (*t - impLoad->GetPoints()[i][0])) / (impLoad->GetPoints()[i + 1][0] - impLoad->GetPoints()[i][0]);
 		}
 	}
 

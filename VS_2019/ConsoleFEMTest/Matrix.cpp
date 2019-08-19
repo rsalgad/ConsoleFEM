@@ -1,9 +1,6 @@
 #include "pch.h"
-#include "Matrix.h"
 #include <thread>
 #include <mutex>
-#include <vector>
-#include <iostream>
 
 Matrix::Matrix()
 {
@@ -16,7 +13,7 @@ Matrix::~Matrix()
 	}
 }
 
-void Matrix::Print() {
+void Matrix::Print() const {
 	std::string matrix = this->ToString();
 	std::cout << matrix << std::endl;
 }
@@ -52,7 +49,7 @@ Matrix::Matrix(int dim)
 //<matrix> Previously created double** with the values of the matrix </matrix>
 //<dimX> Number of lines </dimX>
 //<dimY> Number of columns </dimY>
-Matrix::Matrix(double** matrix, int dimX, int dimY) {
+Matrix::Matrix(double** matrix, const int dimX, const int dimY) {
 	_matrix = matrix;
 	_dimX = dimX;
 	_dimY = dimY;
@@ -61,7 +58,7 @@ Matrix::Matrix(double** matrix, int dimX, int dimY) {
 //<summary> Initializes a square matrix by passing its double array of contents and its dimension </summary> 
 //<matrix> Previously created double** with the values of the matrix </matrix>
 //<dim> Dimension </dim>
-Matrix::Matrix(double** matrix, int dim) {
+Matrix::Matrix(double** matrix, const int dim) {
 	_matrix = matrix;
 	_dimX = dim;
 	_dimY = dim;
@@ -82,7 +79,7 @@ void Matrix::SetDimensions(int dimX, int dimY) {
 }
 
 //<summary> Handles how the matrix is transformed to strings when it needs to be printed somewhere </summary> 
-std::string Matrix::ToString() {
+std::string Matrix::ToString() const {
 	std::string row = "";
 	if (_dimY != 1) {
 		for (int i = 0; i < _dimX; i++) {
@@ -115,6 +112,11 @@ std::string Matrix::ToString() {
 
 //<summary> Returns the double** of the values of a matrix </summary> 
 double** Matrix::GetMatrixDouble() const {
+	return _matrix;
+}
+
+double** Matrix::MatrixDouble()
+{
 	return _matrix;
 }
 
@@ -162,7 +164,7 @@ void Matrix::DestroyMatrixDouble() {
 
 //<summary> Destroys the specified double**. </summary> 
 //<dimX> The line dimension of the double** </dimX> 
-void Matrix::DestroyMatrixDouble(double** d, int dimX) {
+void Matrix::DestroyMatrixDouble(double** d, const int dimX) {
 	for (int i = 0; i < dimX; i++) {
 		delete[] d[i];
 	}
@@ -170,7 +172,7 @@ void Matrix::DestroyMatrixDouble(double** d, int dimX) {
 }
 
 //<summary> Calculate the sum of two matrices</summary>
-Matrix Matrix::operator +(Matrix const &m2) {
+Matrix Matrix::operator +(Matrix const &m2) const {
 	double** addedMatrix = Matrix::CreateMatrixDouble(_dimX, _dimY);
 	for (int i = 0; i < _dimX; i++)
 	{
@@ -184,7 +186,7 @@ Matrix Matrix::operator +(Matrix const &m2) {
 }
 
 //<summary> Calculate the '+=' of two matrices </summary>
-void Matrix::operator +=(Matrix const &m2) {
+void Matrix::operator +=(Matrix const &m2) const {
 	for (int i = 0; i < _dimX; i++)
 	{
 		for (int j = 0; j < _dimY; j++)
@@ -195,7 +197,7 @@ void Matrix::operator +=(Matrix const &m2) {
 }
 
 //<summary> Calculate the subtraction of two matrices </summary>
-Matrix Matrix::operator -(Matrix const &m2) {
+Matrix Matrix::operator -(Matrix const &m2) const {
 	double** subMatrix = Matrix::CreateMatrixDouble(_dimX, _dimY);
 	for (int i = 0; i < _dimX; i++)
 	{
@@ -209,7 +211,7 @@ Matrix Matrix::operator -(Matrix const &m2) {
 }
 
 //<summary> Calculate the multiplication of two matrices </summary>
-Matrix Matrix::operator *(Matrix const &m2) {
+Matrix Matrix::operator *(Matrix const &m2) const {
 	double** multMatrix = Matrix::CreateMatrixDouble(_dimX, m2._dimY);
 
 	for (int i = 0; i < _dimX; i++)
@@ -228,7 +230,7 @@ Matrix Matrix::operator *(Matrix const &m2) {
 }
 
 //<summary> Calculate the multiplication of a matrix by a double </summary>
-Matrix Matrix::operator *(double const &d) {
+Matrix Matrix::operator *(double const &d) const {
 	double** multMatrix = Matrix::CreateMatrixDouble(_dimX, _dimY);
 	for (int i = 0; i < _dimX; i++)
 	{
@@ -242,7 +244,7 @@ Matrix Matrix::operator *(double const &d) {
 }
 
 //<summary> Calculate the multiplication of a matrix by an integer </summary>
-Matrix Matrix::operator *(int const &n) {
+Matrix Matrix::operator *(int const &n) const {
 	double** multMatrix = Matrix::CreateMatrixDouble(_dimX, _dimY);
 	for (int i = 0; i < _dimX; i++)
 	{
@@ -257,7 +259,7 @@ Matrix Matrix::operator *(int const &n) {
 
 
 //Calculates the sparsity of the matrix
-double Matrix::Sparsity() {
+double Matrix::Sparsity() const {
 	double countNonZero = 0;
 	double countZero = 0;
 	for (int i = 0; i < _dimX; i++) {

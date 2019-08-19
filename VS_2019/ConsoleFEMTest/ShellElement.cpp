@@ -1,13 +1,5 @@
 #include "pch.h"
-#include "ShellElement.h"
-#include "ElasticMaterial.h"
-#include "OrthotropicElasticMaterial.h"
-#include "Support.h"
-#include "Mass.h"
-#include "MatrixOperation.h"
-#include "VectorOperation.h"
-#include <math.h>
-#include <iostream>
+//#include "StructureManager.h"
 #include <thread>
 #include <mutex>
 
@@ -51,31 +43,55 @@ ShellElement::ShellElement(int ID, Node* n1, Node* n2, Node* n3, Node* n4, Node*
 	_v2 = Get_v2(_v3, _v1);
 }
 
+std::string ShellElement::ToString() const {
+	std::string shell = "";
+	shell += "(";
+	shell += std::to_string(_ID);
+	shell += ")";
+	shell += "(";
+	shell += "Layers: ";
+	shell += std::to_string(_layers);
+	shell += ", ";
+	shell += "Thickness: ";
+	shell += std::to_string(_thick);
+	shell += ", ";
+	shell += "Nodes: ";
+	for (int i = 0; i < _nodeList.size(); i++){
+		shell += std::to_string(*_nodeList[i]->GetID());
+		if (i != _nodeList.size() - 1) {
+			shell += " ";
+		}
+	}
+	shell += ")";
+	return shell;
+}
+
 //<summary>Returns the ID of the element</summary>
-int ShellElement::GetID() {
+int ShellElement::GetID() const {
 	return _ID;
 }
 
-double ShellElement::GetMassRho() {
+double ShellElement::GetMassRho() const {
 	return _massRho;
 }
 
 //<summary>Returns the global degree of freedom vector of the element</summary>
-std::vector<std::vector<int>> ShellElement::GetGlobalDOFVector() {
+const std::vector<std::vector<int>> ShellElement::GetGlobalDOFVector() const {
 	return _globalDOFList;
 }
 
 //<summary>Returns the global degree of freedom vector of the element</summary>
-std::vector<std::vector<int>> ShellElement::GetGlobalMassDOFVector() {
+const std::vector<std::vector<int>> ShellElement::GetGlobalMassDOFVector() const {
 	return _globalMassDOFList;
 }
 
-std::vector<std::vector<int>> ShellElement::GetGlobalRestDOFVector() {
+const std::vector<std::vector<int>> ShellElement::GetGlobalRestDOFVector() const{
 	return _globalRestDOFList;
 }
 
 //<summary>Calculates the global degree of freedom vector of the element</summary>
 //<comment>This is a vector that stores the global DOF position of each term in the local stiffness matrix. This function is deprecated. </comment>
+/*
 std::vector<int> ShellElement::GlobalDOFVector() {
 	std::vector<int> vec;
 	vec.reserve(6 * 9);
@@ -93,38 +109,41 @@ std::vector<int> ShellElement::GlobalDOFVector() {
 	}
 	return vec; // every 5 terms in the vector is related to a node coordinates in the global stiff matrix
 }
+*/
 
 //<summary>Calculates the global degree of freedom vector of the element</summary>
 //<comment>This is a vector that stores the global DOF position of each term in the local stiffness matrix. It returns the DOFs that are not constrained by a support. </comment>
-void ShellElement::CalculateGlobalDOFVector(std::vector<Support> &supList) {
+void ShellElement::CalculateGlobalDOFVector(const std::map<int, Support*>* supList, const int* DOF) {
 	std::vector<std::vector<int>> vecFree;
 	std::vector<std::vector<int>> vecRestr;
 
-	int DOF = 6;
+	std::map<int, Support*>::const_iterator it = supList->begin();
+
 	for (int i = 0; i < _nodeList.size(); i++) // for each node
 	{
-		Node n = *_nodeList[i];
+		Node* n = _nodeList[i];
 		//int count = Support::NumberOfDOFBeforeNode(n.GetID(), supList);
-		int init = (n.GetID() - 1)*DOF;//if node 1, its 'coordinate' in the stiffness matrix is 0, if 2 -> 6, if 3 -> 12;
-		int initLocal = i * DOF;
+		int init = (*n->GetID() - 1) * *DOF;//if node 1, its 'coordinate' in the stiffness matrix is 0, if 2 -> 6, if 3 -> 12;
+		int initLocal = i * *DOF; //in the stiff matrix, this is the second node
 
-		if (Support::IsNodeConstrained(supList, n.GetID())) { //if true = node has some constraint
-			for (int j = 0; j < DOF; j++) {
-				if (!Support::IsDOFConstrained(init + j, supList)) { //if true = DOF of the node is not constrained
-					int count = Support::NumberOfDOFBeforeDOF(init + j, supList);
+		if (Support::IsNodeConstrained(supList, n->GetID())) { //if true = node has some constraint
+			for (int j = 0; j < *DOF; j++) {
+				int val = init + j;
+				if (!Support::IsDOFConstrained(&val, supList, DOF)) { //if true = DOF of the node is not constrained
+					int count = Support::NumberOfDOFBeforeDOF(&val, supList, DOF);
 					std::vector<int> vec1 = { init + j - count, initLocal + j};
 					vecFree.push_back(vec1);
 				}
 				else { // DOF of the node is constrained
-					int count = Support::NumberOfDOFBeforeDOF(init + j, supList);
+					int count = Support::NumberOfDOFBeforeDOF(&val, supList, DOF);
 					std::vector<int> vec1 = { count, initLocal + j };
 					vecRestr.push_back(vec1);
 				}
 			}
 		}
 		else { //if node has no restraint, no need to check if 'IsDOFConstrained' all the time
-			int count = Support::NumberOfDOFBeforeDOF(init, supList);
-			for (int j = 0; j < DOF; j++) {
+			int count = Support::NumberOfDOFBeforeDOF(&init, supList, DOF);
+			for (int j = 0; j < *DOF; j++) {
 				std::vector<int> vec1 = { init + j - count, initLocal + j};
 				vecFree.push_back(vec1);
 			}
@@ -135,25 +154,26 @@ void ShellElement::CalculateGlobalDOFVector(std::vector<Support> &supList) {
 }
 
 
-void ShellElement::CalculateGlobalMassDOFVector(std::vector<Mass> &massList, std::vector<Support> &supList) {
+void ShellElement::CalculateGlobalMassDOFVector(const StructureManager* structManager, const int* DOF) {
 	std::vector<std::vector<int>> vecMass;
 
-	int DOF = 6;
 	for (int i = 0; i < _nodeList.size(); i++) // for each node
 	{
-		Node n = *_nodeList[i];
+		Node* n = _nodeList[i];
 		//int count = Support::NumberOfDOFBeforeNode(n.GetID(), supList);
-		int init = (n.GetID() - 1)*DOF;//if node 1, its 'coordinate' in the stiffness matrix is 0, if 2 -> 6, if 3 -> 12;
-		int initLocal = i * DOF;
+		int init = (*n->GetID() - 1) * *DOF;//if node 1, its 'coordinate' in the stiffness matrix is 0, if 2 -> 6, if 3 -> 12;
+		int initLocal = i * *DOF;
 
-		if (Support::IsNodeConstrained(supList, n.GetID())) { //if true = node has some constraint
-			for (int j = 0; j < DOF; j++) {
-				if (!Support::IsDOFConstrained(init + j, supList)) { //if DOF is not constrained
-					int count = Support::NumberOfDOFBeforeDOF(init + j, supList);
+		if (Support::IsNodeConstrained(structManager->Supports(), n->GetID())) { //if true = node has some constraint
+			for (int j = 0; j < *DOF; j++) {
+				int val = init + j;
+				if (!Support::IsDOFConstrained(&val, structManager->Supports(), DOF)) { //if DOF is not constrained
+					int count = Support::NumberOfDOFBeforeDOF(&val, structManager->Supports(), DOF);
 					int globDOF = init + j - count;
 					int locDOF = initLocal + j;
 					
-					if (!Mass::HasDOFAppliedMass(massList, globDOF + count)) { //if DOF does not have mass
+					int val2 = globDOF + count;
+					if (!Mass::HasDOFAppliedMass(&val2, structManager->Masses(), DOF)) { //if DOF does not have mass
 						bool rot = IsDOFRotational(locDOF);
 						if (rot || _massRho == 0 || locDOF == 48 || locDOF == 49 || locDOF == 50) {//if it is not rotational nor the ninthNode
 							std::vector<int> vec1 = { globDOF, locDOF };
@@ -164,12 +184,13 @@ void ShellElement::CalculateGlobalMassDOFVector(std::vector<Mass> &massList, std
 			}
 		}
 		else { //if node has no restraint, no need to check if 'IsDOFConstrained' all the time
-			int count = Support::NumberOfDOFBeforeDOF(init, supList);
-			for (int j = 0; j < DOF; j++) {
+			int count = Support::NumberOfDOFBeforeDOF(&init, structManager->Supports(), DOF);
+			for (int j = 0; j < *DOF; j++) {
 				int globDOF = init + j - count;
 				int locDOF = initLocal + j;
 
-				if (!Mass::HasDOFAppliedMass(massList, globDOF + count)) { //if DOF does not have mass
+				int val2 = globDOF + count;
+				if (!Mass::HasDOFAppliedMass(&val2, structManager->Masses(), DOF)) { //if DOF does not have mass
 					bool rot = IsDOFRotational(locDOF);
 					if (rot || _massRho == 0 || locDOF == 48 || locDOF == 49 || locDOF == 50) {//if it is not rotational nor the ninthNode
 						std::vector<int> vec1 = { globDOF, locDOF };
@@ -184,7 +205,7 @@ void ShellElement::CalculateGlobalMassDOFVector(std::vector<Mass> &massList, std
 
 //<summary>Calculates the v1 vector used to defined the local axis of the element</summary>
 //<v3>The v3 vectors that is required to defined the v1 vector </v3>
-Matrix ShellElement::Get_v1(Matrix &v3) {
+Matrix ShellElement::Get_v1(Matrix &v3) const {
 	//creates a vector v1 which is used in the B Matrix
 
 	double** v1 = Matrix::CreateMatrixDouble(3, 1);
@@ -204,15 +225,15 @@ Matrix ShellElement::Get_v1(Matrix &v3) {
 //<first>Defines if the v3 vector is being calculated at startup of the element, or by subsequent calculations </first>
 //<e>The e position in natural coordinate that defines which point is being calculated </e>
 //<n>The n position in natural coordinate that defines which point is being calculated </n>
-Matrix ShellElement::Get_v3(bool first, double e, double n) {
+Matrix ShellElement::Get_v3(bool first, double e, double n) const {
 	Matrix unitV3(3, 1);
 	if (!first){
 		double rx = 0, ry = 0, rz = 0;
 		for (int i = 0; i < _nodeList.size(); i++) { //should this include all 9 nodes or just the 8?
 			double shape = ShapeFunctionN(i + 1, e, n);
-			rx += shape * _nodeList[i]->GetRx();
-			ry += shape * _nodeList[i]->GetRy();
-			rz += shape * _nodeList[i]->GetRz();
+			rx += shape * *_nodeList[i]->GetRx();
+			ry += shape * *_nodeList[i]->GetRy();
+			rz += shape * *_nodeList[i]->GetRz();
 		}
 		if (rx == 0 && ry == 0 && rz == 0){
 			unitV3.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(_v3));
@@ -233,7 +254,7 @@ Matrix ShellElement::Get_v3(bool first, double e, double n) {
 //<summary>Calculates the v2 vector used to defined the local axis of the element</summary>
 //<v3>The v3 vectors that is required to defined the v2 vector </v3>
 //<v1>The v3 vectors that is required to defined the v2 vector </v1>
-Matrix ShellElement::Get_v2(Matrix &v3, Matrix &v1) {
+Matrix ShellElement::Get_v2(Matrix &v3, Matrix &v1) const {
 	Matrix V2 = VectorOperation::VectorCrossProduct(v3, v1);
 	Matrix unitV2 = VectorOperation::UnitVector(V2);
 	return unitV2;
@@ -241,7 +262,7 @@ Matrix ShellElement::Get_v2(Matrix &v3, Matrix &v1) {
 
 //<summary>Calculates the 3x3 local-global axis transformation matrix following the formulas in the Hyrnyk PhD thesis</summary>
 //<jacob>The jacobian matrix</jacob>
-Matrix ShellElement::GetTransformationMatrix3x3Hyrnyk(Matrix &jacob) {
+Matrix ShellElement::GetTransformationMatrix3x3Hyrnyk(const Matrix &jacob) const {
 	double** J = jacob.GetMatrixDouble();
 	double** vec1 = Matrix::CreateMatrixDouble(3, 1);
 	vec1[0][0] = J[0][0];
@@ -289,7 +310,7 @@ Matrix ShellElement::GetTransformationMatrix3x3Hyrnyk(Matrix &jacob) {
 //<summary>Calculates the 3x3 local-global axis transformation matrix following the formulas in the Hinton and Owen, 1984 book</summary>
 //<jacob>The jacobian matrix</jacob>
 //<comment>This function results in error. That might be some mistake with the formulations given by the book</comment>
-Matrix ShellElement::GetTransformationMatrix3x3Book(Matrix &jacob) {
+Matrix ShellElement::GetTransformationMatrix3x3Book(const Matrix &jacob) const {
 	double** J = jacob.GetMatrixDouble();
 
 	double** vec1 = Matrix::CreateMatrixDouble(3, 1);
@@ -328,7 +349,7 @@ Matrix ShellElement::GetTransformationMatrix3x3Book(Matrix &jacob) {
 
 //<summary>Calculates the 54x54 local-global axis transformation matrix following the formulas in the Hinton and Owen, 1984 book</summary>
 //<jacob>The jacobian matrix</jacob>
-Matrix ShellElement::GetTransformationMatrix(Matrix &jacob) {
+Matrix ShellElement::GetTransformationMatrix(const Matrix& jacob) const {
 	Matrix transform = GetTransformationMatrix3x3Hyrnyk(jacob); //For some reason the formulation contained in the book does not work
 
 	double** totalTransform = Matrix::CreateMatrixDouble(54);
@@ -494,7 +515,7 @@ double ShellElement::ShapeFunctionNDerivative(int i, char var, double &e, double
 
 //<summary>Returns the width of the element</summary>
 //<comment>Should only be used when the element is at its undeformed positions</comment>
-double ShellElement::GetWidth() {
+double ShellElement::GetWidth() const {
 	//Get the width based on the difference between nodes 1 and 2 x components.
 	Matrix vec = VectorOperation::VectorFromNodes(*_nodeList[0], *_nodeList[1]); // assumes that nodes 1 and 2 are the edge nodes in the x direction
 	double width = VectorOperation::VectorLength(vec);
@@ -504,7 +525,7 @@ double ShellElement::GetWidth() {
 
 //<summary>Returns the height of the element</summary>
 //<comment>Should only be used when the element is at its undeformed positions</comment>
-double ShellElement::GetHeight() {
+double ShellElement::GetHeight() const {
 	//Get the height based on the difference between nodes 2 and 3 y components.
 	Matrix vec = VectorOperation::VectorFromNodes(*_nodeList[0], *_nodeList[3]); // assumes that nodes 1 and 4 are the edge nodes in the y direction
 	double height = VectorOperation::VectorLength(vec);
@@ -513,18 +534,18 @@ double ShellElement::GetHeight() {
 }
 
 //<summary>Returns the thickness of the element</summary>
-double ShellElement::GetTotalThickness() {
+double ShellElement::GetTotalThickness() const {
 	return _thick * _layers;
 }
 
 //<summary>Returns the number of layers of the element</summary>
-double ShellElement::GetLayers() {
+double ShellElement::GetLayers() const {
 	return _layers;
 }
 
 //<summary>Returns the thickness of each layer of the element</summary>
 //<comment>Assumes uniform thickness</comment>
-double ShellElement::GetLayerThickness() {
+double ShellElement::GetLayerThickness() const {
 	return GetTotalThickness() /_layers;
 }
 
@@ -539,7 +560,7 @@ void ShellElement::SetNodeList(std::vector<Node *> nodeList) {
 }
 
 //<summary>Returns the complete (5x5) D matrix of the element</summary>
-Matrix ShellElement::GetDMatrix(OrthotropicElasticMaterial mat) {
+const Matrix ShellElement::GetDMatrix(OrthotropicElasticMaterial mat) const {
 	double alpha = 5.0 / 6.0;
 	double** D = Matrix::CreateMatrixDouble(5, 5);
 	//double v21 = mat.GetStiffnessY() * mat.GetPoissonXY() / mat.GetStiffnessX();
@@ -599,7 +620,7 @@ double ShellElement::GetRotZStiffTerm(Matrix &m) {
 //<e>The e location in natural coordinates</e>
 //<n>The n location in natural coordinates</n>
 //<c>The c location in natural coordinates</c>
-Matrix ShellElement::GetJacobian(double &e, double &n, double &c) {
+Matrix ShellElement::GetJacobian(double &e, double &n, double &c) const {
 	double** J = Matrix::CreateMatrixDouble(3);
 	double dNde, dNdn, N;
 	Matrix V3 = Get_v3(false, e, n);
@@ -611,9 +632,9 @@ Matrix ShellElement::GetJacobian(double &e, double &n, double &c) {
 		dNdn = ShellElement::ShapeFunctionNDerivative(node + 1, 'n', e, n);
 		N = ShellElement::ShapeFunctionN(node + 1, e, n);
 		double nodeX, nodeY, nodeZ;
-		nodeX = (*_nodeList[node]).GetX();
-		nodeY = (*_nodeList[node]).GetY();
-		nodeZ = (*_nodeList[node]).GetZ();
+		nodeX = *_nodeList[node]->GetX();
+		nodeY = *_nodeList[node]->GetY();
+		nodeZ = *_nodeList[node]->GetZ();
 
 		J[0][0] += dNde * nodeX + dNde*(thick / 2)*c*v3[0][0];
 		J[0][1] += dNde * nodeY + dNde*(thick / 2)*c*v3[1][0];
@@ -635,7 +656,7 @@ Matrix ShellElement::GetJacobian(double &e, double &n, double &c) {
 //<n>The n location in natural coordinates</n>
 //<c>The c location in natural coordinates</c>
 //<Jacobian>The jacobian matrix</Jacobian>
-Matrix ShellElement::GetBMatrix(char type, double &e, double &n, double &c, Matrix &Jacobian) {
+const Matrix ShellElement::GetBMatrix(char type, double &e, double &n, double &c, const Matrix &Jacobian) const {
 	
 	Matrix V1, V2;
 	double** v1;
@@ -721,7 +742,7 @@ Matrix ShellElement::GetBMatrix(char type, double &e, double &n, double &c, Matr
 //<c>The c location in natural coordinates</c>
 //<Jacobian>The jacobian matrix</Jacobian>
 //<comment>To be used when shear and membrane-flexure matrices are calculated together</comment>
-Matrix ShellElement::GetTotalBMatrix(double &e, double &n, double &c, Matrix &Jacobian) {
+const Matrix ShellElement::GetTotalBMatrix(double &e, double &n, double &c, const Matrix &Jacobian) const {
 
 	Matrix V1, V2;
 	double** v1;
@@ -1019,7 +1040,7 @@ Matrix ShellElement::GetGlobalStiffMatrixSeparate() {
 
 //<summary>Calculates the global stiffness matrix for the element</summary>
 //<comment>It considers the same number of gauss integration points for membrane and shear matrices.</comment>
-Matrix ShellElement::GetGlobalStiffMatrix() {
+const Matrix ShellElement::GetGlobalStiffMatrix() const {
 	Matrix stiffMatrix(54, 54);
 
 	int pointLayer = 3; //number of integration points per layer
@@ -1053,9 +1074,9 @@ Matrix ShellElement::GetGlobalStiffMatrix() {
 				for (int k = 0; k < 3; k++) { // for the third gauss integration this should be relative to the number of layers the element has
 					//For each point in the Gauss Integration
 					//Matrix* DMatrix = &ShellElement::GetDMatrix(_matList[floor(k / 3)]); //to be used with layers
-					Matrix DMatrix = ShellElement::GetDMatrix(_matList[0]);
-					Matrix jacob3x3 = GetJacobian(gaussPoints[0][i], gaussPoints[1][j], gaussPoints[2][k]);
-					Matrix BMatrix = GetTotalBMatrix(gaussPoints[0][i], gaussPoints[1][j], gaussPoints[2][k], jacob3x3);
+					const Matrix DMatrix = ShellElement::GetDMatrix(_matList[0]);
+					const Matrix jacob3x3 = GetJacobian(gaussPoints[0][i], gaussPoints[1][j], gaussPoints[2][k]);
+					const Matrix BMatrix = GetTotalBMatrix(gaussPoints[0][i], gaussPoints[1][j], gaussPoints[2][k], jacob3x3);
 					Matrix transpB = MatrixOperation::Transpose(BMatrix);
 					double detJacob = MatrixOperation::DeterminantWithCofactor(jacob3x3, 3);
 					double constmult = w[i] * w[j] * w[k];
@@ -1087,12 +1108,10 @@ Matrix ShellElement::GetGlobalStiffMatrix() {
 //<complete>The complete matrix, defined somewhere else, used to store the values</complete>
 //<sup>The list of supports in the structure</sup>
 //<mu>A way of protecting the different threads of acessing the same information at the same time</mu>
-void ShellElement::AssembleCompleteGlobalMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::vector<Support> &sup, std::mutex& mu) {
-	int DOF = 6; //# of degrees of freedom in each shell element
-
-	for (int k = 0; k < vecEle.size(); k++) { // for each element
-		ShellElement* ele = &vecEle[k];
-		Matrix global = (ele->GetGlobalStiffMatrix()); //45x45 matrix returns
+void ShellElement::AssembleCompleteGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu) {
+	for (int k = 0; k < vecEle->size(); k++) { // for each element
+		ShellElement* ele = (*vecEle)[k];
+		Matrix global = ele->GetGlobalStiffMatrix(); //45x45 matrix returns
 		std::vector<std::vector<int>> vec = ele->GetGlobalDOFVector();
 		int runs = vec.size(); //number of DOFs not restrained
 		for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix
@@ -1106,27 +1125,25 @@ void ShellElement::AssembleCompleteGlobalMatrixThreads(std::vector<ShellElement>
 	}
 }
 
-void ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::vector<Support> &sup, std::mutex& mu) {
-	int DOF = 6; //# of degrees of freedom in each shell element
-	int unrestrictDOF = complete.GetDimY() - Support::TotalDOFsRestrained(sup);
-	for (int k = 0; k < vecEle.size(); k++) { // for each element
-		ShellElement* ele = &vecEle[k];
-		std::vector<std::vector<int>> vec = ele->GetGlobalRestDOFVector();
-		if (vec.size() != 0) {
-			std::vector<std::vector<int>> vec2 = ele->GetGlobalDOFVector();
-			Matrix global = (ele->GetGlobalStiffMatrix()); //45x45 matrix returns
-			int runs = vec.size(); //number of DOFs not restrained
+void ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, const int* unrestrictDOFs, std::mutex& mu) {
+	for (int k = 0; k < vecEle->size(); k++) { // for each element
+		ShellElement* ele = (*vecEle)[k];
+		std::vector<std::vector<int>> vecRest = ele->GetGlobalRestDOFVector();
+		if (vecRest.size() != 0) {
+			std::vector<std::vector<int>> vecGlobal = ele->GetGlobalDOFVector();
+			Matrix global = ele->GetGlobalStiffMatrix(); //45x45 matrix returns
+			int runs = vecRest.size(); //number of DOFs not restrained
 			for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix
-				int index1 = vec[i][0];
-				for (int j = 0; j < vec2.size(); j++) {
-					int index2 = vec2[j][0];
+				int index1 = vecRest[i][0];
+				for (int j = 0; j < vecGlobal.size(); j++) {
+					int index2 = vecGlobal[j][0];
 					std::lock_guard<std::mutex> lock(mu);
-					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec2[j][1]];
+					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vecRest[i][1]][vecGlobal[j][1]];
 				}
 				for (int j = 0; j < runs; j++) { //for all the columns
-					int index2 = vec[j][0] + unrestrictDOF;
+					int index2 = vecRest[j][0] + *unrestrictDOFs;
 					std::lock_guard<std::mutex> lock(mu);
-					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vec[i][1]][vec[j][1]];
+					complete.GetMatrixDouble()[index1][index2] += global.GetMatrixDouble()[vecRest[i][1]][vecRest[j][1]];
 				}
 			}
 		}
@@ -1134,30 +1151,35 @@ void ShellElement::AssembleCompleteRestrictedGlobalMatrixThreads(std::vector<She
 }
 
 //<summary>Calculates the displacement of the ninth node of the element</summary>
-void ShellElement::GetNinthNodeDisplacement(Matrix &totalDisplacementMatrix, std::vector<ShellElement> &listElements) {
-	int DOF = 6;
+void ShellElement::GetNinthNodeDisplacement(Matrix& totalDisplacementMatrix, const std::map<int, ShellElement*>* listElements, const int* DOF) {
+
 	double** matrix = totalDisplacementMatrix.GetMatrixDouble();
-	for (int i = 0; i < listElements.size(); i++) { //for each element
+	std::map<int, ShellElement*>::const_iterator it = listElements->begin();
+
+	while (it != listElements->end()) {//for each element
+
 		double x = 0, y = 0, z = 0, rx = 0, ry = 0;
 		double e = 0, n = 0;
-		std::vector<Node *> nodeList = listElements[i].GetNodeList();
-		int ninthNodeID = (*nodeList[8]).GetID();
+		std::vector<Node*> nodeList = it->second->GetNodeList();
+		int ninthNodeID = *nodeList[8]->GetID();
 
 		for (int j = 0; j < 8; j++) { //use the other 8 nodes to calculate the displacement of the ninth node
 			double shape = ShellElement::ShapeFunctionN(j + 1, e, n);
-			int nodeID = (*nodeList[j]).GetID();
-			x += shape * matrix[(nodeID - 1)*DOF][0];
-			y += shape * matrix[(nodeID - 1)*DOF + 1][0];
-			z += shape * matrix[(nodeID - 1)*DOF + 2][0];
-			rx += shape * matrix[(nodeID - 1)*DOF + 3][0];
-			ry += shape * matrix[(nodeID - 1)*DOF + 4][0];
+			int nodeID = *nodeList[j]->GetID();
+			x += shape * matrix[(nodeID - 1) * (*DOF)][0];
+			y += shape * matrix[(nodeID - 1) * (*DOF) + 1][0];
+			z += shape * matrix[(nodeID - 1) * (*DOF) + 2][0];
+			rx += shape * matrix[(nodeID - 1) * (*DOF) + 3][0];
+			ry += shape * matrix[(nodeID - 1) * (*DOF) + 4][0];
 		}
 
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF][0] = x;
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF + 1][0] = y;
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF + 2][0] = z;
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF + 3][0] += rx;
-		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1)*DOF + 4][0] += ry;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF)][0] = x;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 1][0] = y;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 2][0] = z;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 3][0] += rx;
+		totalDisplacementMatrix.GetMatrixDouble()[(ninthNodeID - 1) * (*DOF) + 4][0] += ry;
+
+		it++;
 	}
 }
 
@@ -1199,14 +1221,13 @@ std::vector<std::vector<int>> ShellElement::CrescentOrderDOFVector(std::vector<s
 }
 
 
-Matrix ShellElement::ConvertAccFromReducedToTotal(Matrix &acc, std::vector<std::vector<int>> &totalMassDOFVec, int size) {
-	int DOF = 6;
+Matrix ShellElement::ConvertAccFromReducedToTotal(Matrix& acc,const std::vector<std::vector<int>>* totalMassDOFVec,const int* size) {
 	int count = 0;
 
-	Matrix ans(size, 1);
+	Matrix ans(*size, 1);
 
 	bool hasMass = true;
-	for (int k = 0; k < size; k++) {
+	for (int k = 0; k < *size; k++) {
 		/*
 		for (int i = 0; i < vecEle.size(); i++) { //for each shell element
 			ShellElement* ele = &vecEle[i];
@@ -1221,8 +1242,8 @@ Matrix ShellElement::ConvertAccFromReducedToTotal(Matrix &acc, std::vector<std::
 			}
 		}
 		*/
-		for (int i = 0; i < totalMassDOFVec.size(); i++) { //for each shell element
-			if (k == totalMassDOFVec[i][0]) {
+		for (int i = 0; i < totalMassDOFVec->size(); i++) { //for each shell element
+			if (k == (*totalMassDOFVec)[i][0]) {
 				hasMass = false;
 			}
 		}
@@ -1239,12 +1260,16 @@ Matrix ShellElement::ConvertAccFromReducedToTotal(Matrix &acc, std::vector<std::
 	return ans;
 }
 
-std::vector<std::vector<int>> ShellElement::GetTotalGlobalMassDOFVector(std::vector<ShellElement> &vecEle) {
+std::vector<std::vector<int>> ShellElement::GetTotalGlobalMassDOFVector(const std::map<int, ShellElement*>* vecEle) {
 	std::vector<std::vector<int>> ans;
-	for (int i = 0; i < vecEle.size(); i++) { //for each shell element
-		ShellElement* ele = &vecEle[i];
+	
+	std::map<int, ShellElement*>::const_iterator it = vecEle->begin();
+
+	while (it != vecEle->end()) {//for each shell element
+		ShellElement* ele = it->second;
 		std::vector<std::vector<int>> vec = ele->GetGlobalMassDOFVector();
 		ans.insert(ans.end(), vec.begin(), vec.end());
+		it++;
 	}
 
 	std::vector<std::vector<int>> organized = ShellElement::CrescentOrderDOFVector(ans);
@@ -1265,7 +1290,7 @@ std::vector<std::vector<int>> ShellElement::GetTotalGlobalMassDOFVector(std::vec
 	return answer;
 }
 
-Matrix ShellElement::CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec) {
+Matrix ShellElement::CondensedReducedStiffMatrixForModal(Matrix& m, const std::vector<std::vector<int>>* totalMassDOFVec) {
 
 	int DOF = 6;
 	int count = 0;
@@ -1285,8 +1310,8 @@ Matrix ShellElement::CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<
 		}
 	}
 	*/
-	for (int i = 0; i < totalMassDOFVec.size(); i++) { //for each shell element
-		int DOF = totalMassDOFVec[i][0]; //index on the global reduced matrix
+	for (int i = 0; i < totalMassDOFVec->size(); i++) { //for each shell element
+		int DOF = (*totalMassDOFVec)[i][0]; //index on the global reduced matrix
 		MatrixOperation::MoveLineAndColumnToEnd(matrix, DOF - count); //move the line and column from the original DOF in the global reduced matrix to the last line and column
 		count++;
 	}
@@ -1301,8 +1326,7 @@ Matrix ShellElement::CondensedReducedStiffMatrixForModal(Matrix &m, std::vector<
 	return ans;
 }
 
-Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix &m, std::vector<std::vector<int>>& totalMassDOFVec) {
-	int DOF = 6;
+Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix& m, const std::vector<std::vector<int>>* totalMassDOFVec, const int* DOF) {
 	int count = 0;
 
 	Matrix matrix(MatrixOperation::CopyMatrixDouble(m), m.GetDimX(), m.GetDimY());
@@ -1322,8 +1346,8 @@ Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix &m, std::vector<std::
 	}
 	*/
 
-	for (int i = 0; i < totalMassDOFVec.size(); i++) { //for each shell element
-		int DOF = totalMassDOFVec[i][0]; //index on the global reduced matrix
+	for (int i = 0; i < totalMassDOFVec->size(); i++) { //for each shell element
+		int DOF = (*totalMassDOFVec)[i][0]; //index on the global reduced matrix
 		MatrixOperation::MoveLineToEnd(matrix, DOF - count); //move the line and column from the original DOF in the global reduced matrix to the last line and column
 		count++;
 	}
@@ -1333,12 +1357,10 @@ Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix &m, std::vector<std::
 	return k11;
 }
 
-void ShellElement::AssembleCompleteGlobalMassMatrixThreads(std::vector<ShellElement> &vecEle, Matrix& complete, std::vector<Support> &sup, std::mutex& mu) {
-	int DOF = 6; //# of degrees of freedom in each shell element
-
-	for (int k = 0; k < vecEle.size(); k++) { // for each element
-		ShellElement* ele = &vecEle[k];
-		Matrix global = (ele->GetMassMatrixTheory()); //45x45 matrix returns
+void ShellElement::AssembleCompleteGlobalMassMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu) {
+	for (int k = 0; k < vecEle->size(); k++) { // for each element
+		ShellElement* ele = (*vecEle)[k];
+		Matrix global = ele->GetMassMatrixTheory(); //45x45 matrix returns
 		std::vector<std::vector<int>> vec = ele->GetGlobalDOFVector();
 		int runs = vec.size(); //number of DOFs not restrained
 		for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix
@@ -1352,12 +1374,12 @@ void ShellElement::AssembleCompleteGlobalMassMatrixThreads(std::vector<ShellElem
 	}
 }
 
-Matrix ShellElement::GetMassMatrixNonZeroMassOnly(Matrix &m, std::vector<std::vector<int>> &totalMassDOFVec) {
+Matrix ShellElement::GetMassMatrixNonZeroMassOnly(Matrix& m, const std::vector<std::vector<int>>* totalMassDOFVec) {
 
 	int DOF = 6;
 	int count = 0;
 	int massCount = 0;
-	Matrix k11(m.GetDimX() - totalMassDOFVec.size());
+	Matrix k11(m.GetDimX() - totalMassDOFVec->size());
 	Matrix matrix(MatrixOperation::CopyMatrixDouble(m), m.GetDimX(), m.GetDimY());
 
 	/*
@@ -1396,7 +1418,8 @@ Matrix ShellElement::GetMassMatrixNonZeroMassOnly(Matrix &m, std::vector<std::ve
 }
 
 bool ShellElement::IsDOFInTheNinthNode(int DOF, std::vector<ShellElement> &vecEle) {
-
+	//TODO:GlobalDOFVector is deprecated. Need to investigate why is this used here.
+	/*
 	for (int i = 0; i < vecEle.size(); i++) {
 		std::vector<int> vec = vecEle[i].GlobalDOFVector();
 		for (int j = 0; j < 3; j++) {
@@ -1405,6 +1428,7 @@ bool ShellElement::IsDOFInTheNinthNode(int DOF, std::vector<ShellElement> &vecEl
 			}
 		}
 	}
+	*/
 	return false;
 }
 

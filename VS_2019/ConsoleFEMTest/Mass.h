@@ -1,13 +1,17 @@
 #pragma once
-#include "Matrix.h"
-#include "Support.h"
+//#include "pch.h"
 #include <vector>
+#include <string>
+#include "Matrix.h"
+#include "StructureManager.h"
+
 
 class Mass
 {
 public:
 	Mass();
 	Mass(int ID, int nodeID);
+	std::string ToString();
 	int GetID();
 	int GetNode();
 	void SetMx(double val);
@@ -19,8 +23,8 @@ public:
 	~Mass();
 
 	static void SortByNodeID(std::vector<Mass> &mass);
-	static Matrix AddExplicitMassesOnExistingMatrix(Matrix &shellMass, std::vector<Mass> &listOfMasses, std::vector<Support>& listOfSups);
-	static bool HasDOFAppliedMass(std::vector<Mass> &mass, int DOF);
+	static void AddExplicitMassesOnExistingMatrix(Matrix* shellMass, const StructureManager* structManager, const int* DOF);
+	static bool HasDOFAppliedMass(const int* DOF, const std::map<int, Mass*>* mass, const int* nDOF);
 private:
 	int _ID, _nodeID;
 	std::vector<std::vector<double>> _mass; //{{dir,load} = {1,20}, {2,10}} where 1 is Fx, 2 = Fy, 3 = Fz, 4 = Mx, 5 = My; 

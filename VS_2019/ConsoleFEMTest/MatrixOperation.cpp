@@ -1,7 +1,4 @@
 #include "pch.h"
-#include "Matrix.h"
-#include "MatrixOperation.h"
-#include <iostream>
 #include <mutex>
 #include <thread>
 //<summary> Creates an identity matrix with the desired dimension </summary> 
@@ -20,7 +17,7 @@ Matrix MatrixOperation::I(int dim) {
 
 //<summary> Copies the double** of a matrix and return it. </summary> 
 //<comment> This is required because double** is a pointer, and changing its values before copying it will change all the matrices that uses that double** </comment> 
-double** MatrixOperation::CopyMatrixDouble(Matrix &m) {
+double** MatrixOperation::CopyMatrixDouble(const Matrix &m) {
 	double** matrix = Matrix::CreateMatrixDouble(m.GetDimX(), m.GetDimY());
 	for (int i = 0; i < m.GetDimX(); i++) {
 		for (int j = 0; j < m.GetDimY(); j++) {
@@ -32,7 +29,7 @@ double** MatrixOperation::CopyMatrixDouble(Matrix &m) {
 
 //<summary> Calculate the cofactor of a matrix. </summary>
 //<comment> This function is part of a group of functions to calculate determinant and inverse of matrices. </comment>
-void MatrixOperation::GetCofactor(Matrix &matrix, Matrix &temp, int p, int q, int n) {
+void MatrixOperation::GetCofactor(const Matrix &matrix, Matrix &temp, int p, int q, int n) {
 	int i = 0, j = 0;
 
 	// Looping for each element of the matrix 
@@ -60,7 +57,7 @@ void MatrixOperation::GetCofactor(Matrix &matrix, Matrix &temp, int p, int q, in
 
 //<summary> Calculate the determinant of a matrix using the cofactor method. </summary>
 //<comment> This function is part of a group of functions to calculate determinant and inverse of matrices. </comment>
-double MatrixOperation::DeterminantWithCofactor(Matrix &m, int n) {
+double MatrixOperation::DeterminantWithCofactor(const Matrix &m, int n) {
 	double D = 0; // Initialize result 
 
 	//  Base case : if matrix contains single element 
@@ -88,7 +85,7 @@ double MatrixOperation::DeterminantWithCofactor(Matrix &m, int n) {
 //<summary> Calculate the adjoint matrix of the specified matrix. </summary>
 //<matrix> The matrix to calculate the adjoint matrix </matrix>
 //<comment> This function is part of a group of functions to calculate determinant and inverse of matrices. </comment>
-Matrix MatrixOperation::GetAdjointMatrix(Matrix &matrix) {
+Matrix MatrixOperation::GetAdjointMatrix(const Matrix &matrix) {
 	int dim = matrix.GetDimX();
 	Matrix adj(dim, dim);
 
@@ -125,7 +122,7 @@ Matrix MatrixOperation::GetAdjointMatrix(Matrix &matrix) {
 //<summary> Calculate the determinant of a matrix </summary>
 //<m> The matrix to calculate the determinant </m>
 //<comment> This function is deprecated, use the CalculateDeterminantWithCofactor. This function can result in errors. </comment>
-double MatrixOperation::CalculateDeterminant(Matrix &m) {
+double MatrixOperation::CalculateDeterminant(const Matrix &m) {
 	double** matrix = Matrix::CreateMatrixDouble(m.GetDimX(), m.GetDimY());
 	matrix = CopyMatrixDouble(m);
 	for (int k = 0; k < m.GetDimX(); k++) // This index keeps zeroeing everything related to this row.
@@ -150,7 +147,7 @@ double MatrixOperation::CalculateDeterminant(Matrix &m) {
 
 //<summary> Calculate the inverse of a matrix using the adjoint matrix method </summary>
 //<m> The matrix to calculate the inverse </m>
-Matrix MatrixOperation::GetInverseWithAdjoint(Matrix &m) {
+Matrix MatrixOperation::GetInverseWithAdjoint(const Matrix &m) {
 	int dim = m.GetDimX();
 	Matrix inverse(dim, dim);
 
@@ -177,7 +174,7 @@ Matrix MatrixOperation::GetInverseWithAdjoint(Matrix &m) {
 
 //<summary> Calculate the transpose of a a matrix </summary>
 //<m> The matrix to be transposed </m>
-Matrix MatrixOperation::Transpose(Matrix &m) {
+Matrix MatrixOperation::Transpose(const Matrix &m ) {
 	double** transp = Matrix::CreateMatrixDouble(m.GetDimY(), m.GetDimX());
 	for (int i = 0; i < m.GetDimX(); i++) {
 		for (int j = 0; j < m.GetDimY(); j++) {
@@ -191,7 +188,7 @@ Matrix MatrixOperation::Transpose(Matrix &m) {
 //<summary> Calculate theinverse of a a matrix</summary>
 //<m> The matrix to calculate the inverse </m>
 //<comment> This function is deprecated, use the GetInverseWithAdjoint. This function can result in errors. </comment>
-Matrix MatrixOperation::GetInverse(Matrix &m) {
+Matrix MatrixOperation::GetInverse(const Matrix &m) {
 	Matrix In = I(m.GetDimX());
 	Matrix expanded = AddMatrixRight(m, In);
 	Matrix lower = GetNormalizedLowerTriangular(expanded);
@@ -206,7 +203,7 @@ Matrix MatrixOperation::GetInverse(Matrix &m) {
 //<summary> Deletes a row and a column of the specified matrix </summary>
 //<m> The specified matrix </m>
 //<pos> The position (in array notation) to delete</pos>
-Matrix MatrixOperation::DeleteRowAndColumn(Matrix &m, int pos) {
+Matrix MatrixOperation::DeleteRowAndColumn(const Matrix &m, const int pos) {
 	int sizeX = m.GetDimX() - 1;
 	int sizeY = m.GetDimY() - 1;
 	double** reduced = Matrix::CreateMatrixDouble(sizeX, sizeY);
@@ -237,7 +234,7 @@ Matrix MatrixOperation::DeleteRowAndColumn(Matrix &m, int pos) {
 //<summary> Deletes a row of the specified matrix </summary>
 //<m> The specified matrix </m>
 //<pos> The position (in array notation) to delete</pos>
-Matrix MatrixOperation::DeleteRow(Matrix &m, int pos) {
+Matrix MatrixOperation::DeleteRow(const Matrix &m, int pos) {
 	int sizeX = m.GetDimX() - 1; //will delete 1 row
 	int sizeY = m.GetDimY(); //won't change columns
 	double** reduced = Matrix::CreateMatrixDouble(sizeX, sizeY);
@@ -259,7 +256,7 @@ Matrix MatrixOperation::DeleteRow(Matrix &m, int pos) {
 
 //<summary> Performs the Cholesky decomposition of a matrix and returns the L matrix, where LL'=A </summary>
 //<m> The matrix to calculate the cholesky</m>
-Matrix MatrixOperation::CholeskyDecomposition(Matrix &m) {
+Matrix MatrixOperation::CholeskyDecomposition(const Matrix &m) {
 	int sizeX = m.GetDimX();
 	int sizeY = m.GetDimY();
 	double** matrix = Matrix::CreateMatrixDouble(sizeX, sizeY);
@@ -294,7 +291,7 @@ Matrix MatrixOperation::CholeskyDecomposition(Matrix &m) {
 //<summary> Performs the Cholesky decomposition of a matrix and returns the L matrix, where LL'=A </summary>
 //<m> The matrix to calculate the cholesky</m>
 //<comment> This function does not work as it is now. Still needs better implementation</comment>
-Matrix MatrixOperation::CholeskyDecompositionThreads(Matrix &m) {
+Matrix MatrixOperation::CholeskyDecompositionThreads(const Matrix &m) {
 	int sizeX = m.GetDimX();
 	int sizeY = m.GetDimY();
 	double** matrix1 = Matrix::CreateMatrixDouble(sizeX, sizeY);
@@ -406,7 +403,7 @@ void MatrixOperation::Cholesky2(int ini, int k, int i, double& sum, double** mat
 }
 
 //<summary> Performs forward substitution matrix operations to solve a system of the type Lx=b. Returns x. </summary>
-Matrix MatrixOperation::ForwardSubstitution(Matrix &L, Matrix &b) {
+Matrix MatrixOperation::ForwardSubstitution(const Matrix &L, const Matrix &b) {
 	//performs the Forward substitution on a system of the type Lx=b, and returns the x matrix
 	//L needs to be a lower triangle
 	int size = b.GetDimX();
@@ -425,7 +422,7 @@ Matrix MatrixOperation::ForwardSubstitution(Matrix &L, Matrix &b) {
 }
 
 //<summary> Performs back substitution matrix operations to solve a system of the type Lx=b. Returns x. </summary>
-Matrix MatrixOperation::BackSubstitution(Matrix &L, Matrix &b) {
+Matrix MatrixOperation::BackSubstitution(const Matrix &L, const Matrix &b) {
 	//performs the Back substitution on a system of the type Lx=b, and returns the x matrix
 	//L needs to be a lower triangle
 	int size = b.GetDimX();
@@ -446,7 +443,7 @@ Matrix MatrixOperation::BackSubstitution(Matrix &L, Matrix &b) {
 //<summary> Performs all the steps in the Cholesky decomposition on the system F=Kd. Returns d. </summary>
 //<m> The K matrix </m>
 //<f> The F matrix </f>
-Matrix MatrixOperation::FullCholesky(Matrix &m, Matrix &f) {
+Matrix MatrixOperation::FullCholesky(const Matrix &m, const Matrix &f) {
 	int sizeX = m.GetDimX();
 	int sizeY = m.GetDimY();
 	double** matrix = Matrix::CreateMatrixDouble(sizeX, sizeY);
@@ -513,7 +510,7 @@ Matrix MatrixOperation::FullCholesky(Matrix &m, Matrix &f) {
 //<ori>Original matrix </ori>
 //<toAdd>Matrix to be added to the original matrix </toAdd>
 //<comment>Both matrices must have the same number of columns. </comment>
-Matrix MatrixOperation::AddMatrixBottom(Matrix &ori, Matrix &toAdd) {
+Matrix MatrixOperation::AddMatrixBottom(const Matrix &ori, const Matrix &toAdd) {
 	int newSizeX = ori.GetDimX() + toAdd.GetDimX();
 	int sizeY = ori.GetDimY();
 	double** matrix = Matrix::CreateMatrixDouble(newSizeX, sizeY);
@@ -534,7 +531,7 @@ Matrix MatrixOperation::AddMatrixBottom(Matrix &ori, Matrix &toAdd) {
 //<ori>Original matrix </ori>
 //<toAdd>Matrix to be added to the original matrix </toAdd>
 //<comment>Both matrices must have the same number of rows. </comment>
-Matrix MatrixOperation::AddMatrixRight(Matrix &ori, Matrix &toAdd) {
+Matrix MatrixOperation::AddMatrixRight(const Matrix &ori, const Matrix &toAdd) {
 	int newSizeY = ori.GetDimY() + toAdd.GetDimY();
 	int sizeX = ori.GetDimX();
 	double** matrix = Matrix::CreateMatrixDouble(sizeX, newSizeY);
@@ -557,7 +554,7 @@ Matrix MatrixOperation::AddMatrixRight(Matrix &ori, Matrix &toAdd) {
 //<initRowPos>Row position that the added matrix will be inserted in the original matrix, in real positions</initRowPos>
 //<initColPos>Column position that the added matrix will be inserted in the original matrix, in real positions</initColPos>
 //<comment>The original matrix' dimensions are not changed, so the added matrix must not surpass the original matrix' dimensions </comment>
-void MatrixOperation::AddMatrixAtPosition(Matrix &ori, Matrix &toAdd, int initRowPos, int initColPos) {
+void MatrixOperation::AddMatrixAtPosition(Matrix &ori, const Matrix &toAdd, const int initRowPos, const int initColPos) {
 	int nX = toAdd.GetDimX();
 	int nY = toAdd.GetDimY();
 
@@ -571,7 +568,7 @@ void MatrixOperation::AddMatrixAtPosition(Matrix &ori, Matrix &toAdd, int initRo
 //<summary>Returns a subset of a given matrix, based on the specified location </summary>
 //<dim>The position, after which, all the elements will be returned as a new matrix </dim>
 //<comment>This function returns a matrix with the same number of rows and the remaining number of columns from the original matrix minus the specified position. Ex. 20 - 17 = 3, the last three columns. </comment>
-Matrix MatrixOperation::ExtractMatrixFromEnd(Matrix &m, int dim) {
+Matrix MatrixOperation::ExtractMatrixFromEnd(const Matrix &m, const int dim) {
 	double** matrix = Matrix::CreateMatrixDouble(m.GetDimX(), m.GetDimY() - dim);
 	for (int i = 0; i < m.GetDimX(); i++)
 	{
@@ -584,7 +581,7 @@ Matrix MatrixOperation::ExtractMatrixFromEnd(Matrix &m, int dim) {
 }
 
 //<summary>Converts a given matrix in its normalized upper triangular form </summary>
-Matrix MatrixOperation::GetNormalizedUpperTriangular(Matrix &m) {
+Matrix MatrixOperation::GetNormalizedUpperTriangular(const Matrix &m) {
 	double** matrix = CopyMatrixDouble(m);
 
 	for (int k = 0; k < m.GetDimX(); k++) // This index keeps zeroeing everything related to this row.
@@ -629,7 +626,7 @@ Matrix MatrixOperation::GetNormalizedUpperTriangular(Matrix &m) {
 }
 
 //<summary>Converts a given matrix in its normalized lower triangular form </summary>
-Matrix MatrixOperation::GetNormalizedLowerTriangular(Matrix &m) {
+Matrix MatrixOperation::GetNormalizedLowerTriangular(const Matrix &m) {
 	double** matrix = CopyMatrixDouble(m);
 
 	for (int k = m.GetDimX() - 1; k >= 0; k--) // This index keeps zeroeing everything related to this row.
@@ -679,7 +676,7 @@ Matrix MatrixOperation::GetNormalizedLowerTriangular(Matrix &m) {
 //<initCol>The position of the first column to be extracted </initCol>
 //<step>The space between columns that are going to be extracted</step>
 //<comment>This function does not changes the original matrix</comment>
-Matrix MatrixOperation::ExtractSetOfColumns(Matrix &ori, int nCols, int initCol, int step) {
+Matrix MatrixOperation::ExtractSetOfColumns(const Matrix &ori, const int nCols, const int initCol, const int step) {
 	double** matrix = Matrix::CreateMatrixDouble(ori.GetDimX(), nCols);
 	for (int i = 0; i < ori.GetDimX(); i++) { //for each row
 		for (int j = 0; j < nCols; j++) {
@@ -695,7 +692,7 @@ Matrix MatrixOperation::ExtractSetOfColumns(Matrix &ori, int nCols, int initCol,
 //<posCol>The position where the column will be added </posCol>
 //<val>The value of the term that will be added in the crossing of the new line and new column</val>
 //<comment>This function destroys the original matrix and returns the new one with the added line and column.</comment>
-Matrix MatrixOperation::AddLineAndColumnWithTermAtPosition(Matrix &ori, int posLine, int posCol, double val) {
+Matrix MatrixOperation::AddLineAndColumnWithTermAtPosition(const Matrix &ori, const int posLine, const int posCol, const double val) {
 	int dimX = ori.GetDimX() + 1;
 	int dimY = ori.GetDimY() + 1;
 	double** matrix = Matrix::CreateMatrixDouble(dimX, dimY);
@@ -740,7 +737,7 @@ Matrix MatrixOperation::AddLineAndColumnWithTermAtPosition(Matrix &ori, int posL
 }
 
 //<summary>Uses the specified support and load vectors to obtain the reduced version of a complete global stiffness matrix</summary>
-Matrix MatrixOperation::GetReducedMatrix(Matrix &GlobalMatrix, std::vector<Support> &vecSup, std::vector<Node> &vecNode) {
+Matrix MatrixOperation::GetReducedMatrix(const Matrix &GlobalMatrix, std::vector<Support> &vecSup, std::vector<Node> &vecNode) {
 	int DOF = 6; //for shell elements
 	int remove = 0; // Keeps track of the amount of support conditions to calculate the reduced size of the reduced matrix
 	Matrix reduced(CopyMatrixDouble(GlobalMatrix), GlobalMatrix.GetDimX(), GlobalMatrix.GetDimY());
@@ -755,7 +752,7 @@ Matrix MatrixOperation::GetReducedMatrix(Matrix &GlobalMatrix, std::vector<Suppo
 	return reduced;
 }
 
-void MatrixOperation::SwapLine(Matrix &matrix, int origIndex, int finalIndex) {
+void MatrixOperation::SwapLine(Matrix &matrix, const int origIndex, const int finalIndex) {
 
 	for (int i = 0; i < matrix.GetDimY(); i++) //for each col
 	{
@@ -765,7 +762,7 @@ void MatrixOperation::SwapLine(Matrix &matrix, int origIndex, int finalIndex) {
 	}
 }
 
-void MatrixOperation::MoveLineToEnd(Matrix &matrix, int origIndex) {
+void MatrixOperation::MoveLineToEnd(Matrix &matrix, const int origIndex) {
 
 	std::vector<double> origLineTerms;
 	origLineTerms.reserve(matrix.GetDimY());
@@ -811,7 +808,7 @@ void MatrixOperation::MoveColumnToEnd(Matrix &matrix, int origIndex) {
 	}
 }
 
-void MatrixOperation::SwapColumn(Matrix &matrix, int origIndex, int finalIndex) {
+void MatrixOperation::SwapColumn(Matrix &matrix, const int origIndex, const int finalIndex) {
 
 	for (int i = 0; i < matrix.GetDimX(); i++) //for each row
 	{
@@ -826,7 +823,7 @@ void MatrixOperation::MoveLineAndColumnToEnd(Matrix &matrix, int origIndex) {
 	MoveColumnToEnd(matrix, origIndex);
 }
 
-Matrix MatrixOperation::ExtractMatrixBasedOnLineAndColumns(Matrix &matrix, int iniLine, int nLine, int iniCol, int nCol) {
+Matrix MatrixOperation::ExtractMatrixBasedOnLineAndColumns(const Matrix &matrix, const int iniLine, const int nLine, const int iniCol, const int nCol) {
 	Matrix m(nLine, nCol);
 
 	for (int i = 0; i < nLine; i++) {
@@ -837,7 +834,7 @@ Matrix MatrixOperation::ExtractMatrixBasedOnLineAndColumns(Matrix &matrix, int i
 	return m;
 }
 
-double MatrixOperation::GetBiggestDiagTerm(Matrix& m) {
+double MatrixOperation::GetBiggestDiagTerm(const Matrix& m) {
 	int dim = m.GetDimX();
 	double val = 0;
 
@@ -849,7 +846,7 @@ double MatrixOperation::GetBiggestDiagTerm(Matrix& m) {
 	return val;
 }
 
-void MatrixOperation::ConvertToEigenMatrix(Matrix &m, Eigen::MatrixXd& eigenMatrix) {
+void MatrixOperation::ConvertToEigenMatrix(const Matrix &m, Eigen::MatrixXd& eigenMatrix) {
 
 	eigenMatrix.resize(m.GetDimX(), m.GetDimY());
 
@@ -868,7 +865,7 @@ void MatrixOperation::PopulateDiagonalOnly(std::vector<double>& terms, Matrix &m
 }
 
 //toFill and filler must have the same dimensions
-Matrix MatrixOperation::FillMatrixBasedOnOtherMatrix(Matrix &toFill, Matrix& filler) {
+Matrix MatrixOperation::FillMatrixBasedOnOtherMatrix(Matrix& toFill, Matrix& filler) {
 	Matrix m(toFill.GetDimX(), toFill.GetDimY());
 
 	for (int i = 0; i < m.GetDimX(); i++) {
@@ -884,7 +881,7 @@ Matrix MatrixOperation::FillMatrixBasedOnOtherMatrix(Matrix &toFill, Matrix& fil
 	return m;
 }
 
-Matrix MatrixOperation::Sqrt(Matrix &m) {
+Matrix MatrixOperation::Sqrt(const Matrix &m) {
 
 	Eigen::MatrixXd eigenMatrix;
 	ConvertToEigenMatrix(m, eigenMatrix);

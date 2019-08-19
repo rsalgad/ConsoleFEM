@@ -1,7 +1,8 @@
 #pragma once
+//#include "pch.h"
 #include "MaterialModel.h"
-#include <vector>
 #include <string>
+#include <vector>
 
 class ElasticMaterial : public MaterialModel
 {
@@ -12,6 +13,7 @@ public:
 	double GetStiffness();
 	double GetPoisson();
 	std::string GetType() override;
+	std::string ToString() override;
 	static ElasticMaterial FindElasticMaterialByID(std::vector<ElasticMaterial> listOfShellMaterials, int ID);
 	~ElasticMaterial();
 

@@ -1,5 +1,8 @@
 #include "pch.h"
-#include "TimeIntegrationMethod.h"
+
+TimeIntegrationMethod::TimeIntegrationMethod()
+{
+}
 
 TimeIntegrationMethod::TimeIntegrationMethod(IntegrationMethod method)
 {
@@ -35,27 +38,27 @@ TimeIntegrationMethod::TimeIntegrationMethod(IntegrationMethod method)
 	}
 }
 
-double TimeIntegrationMethod::GetNewmarkGama()
+double TimeIntegrationMethod::GetNewmarkGama() const
 {
 	return _newmarkGama;
 }
 
-double TimeIntegrationMethod::GetNewmarkBeta()
+double TimeIntegrationMethod::GetNewmarkBeta() const
 {
 	return _newmarkBeta;
 }
 
-double TimeIntegrationMethod::GetWilsonTheta()
+double TimeIntegrationMethod::GetWilsonTheta() const
 {
 	return _wilsonTheta;
 }
 
-double TimeIntegrationMethod::GetAlphaF()
+double TimeIntegrationMethod::GetAlphaF() const
 {
 	return _alphaF;
 }
 
-double TimeIntegrationMethod::GetAlphaM()
+double TimeIntegrationMethod::GetAlphaM() const
 {
 	return _alphaM;
 }

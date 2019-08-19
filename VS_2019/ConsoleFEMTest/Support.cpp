@@ -1,7 +1,4 @@
 #include "pch.h"
-#include "Support.h"
-#include "Matrix.h"
-#include <vector>
 
 
 Support::Support()
@@ -22,6 +19,59 @@ int Support::GetID()
 int Support::GetNode()
 {
 	return _nodeID;
+}
+
+std::string Support::ToString()
+{
+	std::string sup = "";
+	sup += "(";
+	sup += std::to_string(_ID);
+	sup += ")";
+	sup += "(";
+	sup += "Node: ";
+	sup += std::to_string(_nodeID);
+	sup += ", ";
+	for (int i = 0; i < _support[0].size(); i++) {
+
+		if (i != 0)
+		{
+			sup += ", ";
+		}
+
+		sup += "Component ";
+		sup += (i + 1);
+		sup += ": ";
+		int dir = _support[i][0];
+
+		switch (dir)
+		{
+		case 1:
+			sup += "Translation X = ";
+			break;
+		case 2:
+			sup += "Translation Y = ";
+			break;
+		case 3:
+			sup += "Translation Z = ";
+			break;
+		case 4:
+			sup += "Rotation X = ";
+			break;
+		case 5:
+			sup += "Rotation Y = ";
+			break;
+		case 6:
+			sup += "Rotation Z = ";
+			break;
+		default:
+			break;
+		}
+		sup += std::to_string(_support[i][1]);
+	}
+
+	sup += ")";
+
+	return sup;
 }
 
 void Support::Set_tX(double val) {
@@ -72,45 +122,52 @@ int Support::NumberOfDOFBeforeNode(int nodeID, std::vector<Support> &sup) {
 	return counter;
 }
 
-int Support::NumberOfDOFBeforeDOF(int DOF, std::vector<Support> &sup) {
+int Support::NumberOfDOFBeforeDOF(const int* DOF, const std::map<int, Support*>* sup, const int* nDOF) {
 	int counter = 0;
-	int size = 6;
-	for (int i = 0; i < sup.size(); i++) {
-		for (int j = 0; j < sup[i].GetSupportVector().size(); j++) {
-			if (sup[i].GetSupportVector()[j][1] == 0) { //I only want to do this if the support is a boundary condition
-				int supDOF = (sup[i].GetNode() - 1) * size + (sup[i].GetSupportVector()[j][0] - 1);
-				if (supDOF < DOF) {
+	std::map<int, Support*>::const_iterator it = sup->begin();
+
+	while (it != sup->end()) {
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) {
+			if (it->second->GetSupportVector()[j][1] == 0) { //I only want to do this if the support is a boundary condition
+				int supDOF = (it->second->GetNode() - 1) * (*nDOF) + (it->second->GetSupportVector()[j][0] - 1);
+				if (supDOF < (*DOF)) {
 					counter++;
 				}
 			}
 		}
+		it++;
 	}
 	return counter;
 }
 
-bool Support::IsDOFConstrained(int DOF, std::vector<Support> &sup) {
-	int size = 6;
-	for (int i = 0; i < sup.size(); i++) {
-		for (int j = 0; j < sup[i].GetSupportVector().size(); j++) {
-			if (sup[i].GetSupportVector()[j][1] == 0) { //only constrained if displacement is 0
-				int supDOF = (sup[i].GetNode() - 1) * size + (sup[i].GetSupportVector()[j][0] - 1);
-				if (supDOF == DOF) {
+bool Support::IsDOFConstrained(const int* DOF, const std::map<int, Support*>* sup, const int* nDOF) {
+	std::map<int, Support*>::const_iterator it = sup->begin();
+
+	while (it != sup->end()) {
+
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) {
+			if (it->second->GetSupportVector()[j][1] == 0) { //only constrained if displacement is 0
+				int supDOF = (it->second->GetNode() - 1) * (*nDOF) + (it->second->GetSupportVector()[j][0] - 1);
+				if (supDOF == *DOF) {
 					return true;
 				}
 			}
 		}
+		it++;
 	}
 	return false;
 }
 
-int Support::TotalDOFsRestrained(std::vector<Support> &sup) {
+int Support::TotalDOFsRestrained(const std::map<int, Support*>* sup) {
 	int counter = 0;
-	for (int i = 0; i < sup.size(); i++) {
-		for (int j = 0; j < sup[i].GetSupportVector().size(); j++) {
-			if (sup[i].GetSupportVector()[j][1] == 0) { //if is an actual support
+	std::map<int, Support*>::const_iterator it = sup->begin();
+	while (it != sup->end()) {
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) {
+			if (it->second->GetSupportVector()[j][1] == 0) { //if is an actual support
 				counter++;
 			}
 		}
+		it++;
 	}
 	return counter;
 }
@@ -166,12 +223,17 @@ void Support::SortByNodeID(std::vector<Support> &sup) {
 	sup = sup1;
 }
 
-bool Support::IsNodeConstrained(std::vector<Support> &sup, int nodeID) {
-	for (int i = 0; i < sup.size(); i++) { //for each support
-		if (sup[i].GetNode() == nodeID) {
+bool Support::IsNodeConstrained(const std::map<int, Support*>* sup,const int* nodeID) {
+	
+	std::map<int, Support*>::const_iterator it = sup->begin();
+
+	while (it != sup->end()) {//for each support
+		if (it->second->GetNode() == *nodeID) {
 			return true;
 		}
+		it++;
 	}
+	
 	return false;
 }
 
@@ -185,18 +247,22 @@ void Support::SetSupportVector(std::vector<std::vector<double>> vec)
 	_support = vec;
 }
 
-std::vector<int> Support::GetDisplacementLoadIndexes(std::vector<Support> &vecSup) {
+std::vector<int> Support::GetDisplacementLoadIndexes(const int* DOF, const std::map<int, Support*>* vecSup) {
 	std::vector<int> vec;
-	int DOF = 6;
-	for (int i = 0; i < vecSup.size(); i++) { //for each support
-		for (int j = 0; j < vecSup[i].GetSupportVector().size(); j++) {
-			if (vecSup[i].GetSupportVector()[j][1] != 0) { //if zero, then it is a support, not a support load!
-				int nodeID = vecSup[i].GetNode();
-				int index = (nodeID - 1)*DOF + (vecSup[i].GetSupportVector()[j][0] - 1);
-				int count = Support::NumberOfDOFBeforeDOF(index, vecSup);
+
+	std::map<int, Support*>::const_iterator it = vecSup->begin();
+
+	while (it != vecSup->end()) {//for each support
+
+		for (int j = 0; j < it->second->GetSupportVector().size(); j++) {
+			if (it->second->GetSupportVector()[j][1] != 0) { //if zero, then it is a support, not a support load!
+				int nodeID = it->second->GetNode();
+				int index = (nodeID - 1) * (*DOF) + (it->second->GetSupportVector()[j][0] - 1);
+				int count = Support::NumberOfDOFBeforeDOF(&index, vecSup, DOF);
 				vec.push_back(index - count);
 			}
 		}
+		it++;
 	}
 	return vec;
 }

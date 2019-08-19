@@ -1,550 +1,609 @@
 #include "pch.h"
-#include "IterationManager.h"
-#include "Node.h"
-#include "ShellElement.h"
-#include "Spring3D.h"
-#include "Load.h"
-#include "Support.h"
 #include "Solver.h"
-#include "Displacement.h"
+#include "IterationManager.h"
 #include "FileOperation.h"
-#include "MatrixOperation.h"
-#include "TimeIntegrationMethod.h"
-#include <iostream>
+#include <map>
 #include <fstream>
 
+double IterationManager::_biggestStiffVal = 0;
+bool IterationManager::_breakAnalysis = false;
 
 IterationManager::IterationManager()
 {
+
 }
 
 //For elastic analysis only (with loadsteps, if wanted) working
-void IterationManager::PerformAnalysisWithIterations(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, std::vector<Load> &listOfLoads, std::vector<Support> &listOfSups, int nLoadSteps, std::string &fileName) {
-	std::vector<Node> originalList = listOfNodes;
-	std::vector<std::vector<Node>> nodesPerIter;
-	nodesPerIter.reserve(nLoadSteps);
-	double div = (1.0 / nLoadSteps);
-	std::vector<std::vector<ShellElement>> shellElemVecs = Solver::SetUpThreadsForShells(listOfShells, std::thread::hardware_concurrency());
+void IterationManager::PerformElasticAnalysis(const StructureManager* structManager, const PreAnalysisSetUp* setUp, int nLoadSteps, std::string &fileName) {
 
+	//NodalRecorder<Node>* dispRecorder = new NodalRecorder<Node>(structManager->Nodes());
+	AnalysisSpringRecorder springRecord('a', structManager->SpringElements());
 
 	//Perform the initial iteration (will occur even when no iterations are specified)
 	//The analysis is always performed on the original, undeformed, configuration of the structure, but with increasing load.
-	Matrix mRed = Solver::CompleteStiffnessMatrixWithThreadsDispBased(listOfNodes, listOfShells, listOfSprings, listOfSups, std::thread::hardware_concurrency(), shellElemVecs);
-	Matrix F = Load::AssembleLoadMatrix(listOfNodes, listOfLoads);
+	Matrix shellStiff = Solver::ReducedShellStiffMatrix(structManager, setUp); //calcualtes the reduced stiffness amtrix only accounting for the shell elements
+	Matrix mRed = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, NULL);
 
 	//start to perform the load steps
-	for (int step = 0; step < nLoadSteps; step++) {
-		Matrix Fmult = F * div * (step + 1);
-		Matrix F_iter = Load::GetReducedLoadMatrix(Fmult, listOfSups);
-		Matrix Cholesky = MatrixOperation::CholeskyDecomposition(mRed);
-		Matrix CholeskyTransp = MatrixOperation::Transpose(Cholesky);
-		Matrix interMatrix = MatrixOperation::ForwardSubstitution(Cholesky, F_iter);
-		Matrix d_iter = MatrixOperation::BackSubstitution(CholeskyTransp, interMatrix);
-		Matrix completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, listOfSups, listOfNodes);
+	for (int step = 0; step < *setUp->LoadSteps(); step++) {
+		Matrix Fmult = (*setUp->ConstForces() + *setUp->IncForces()) * (*setUp->LoadFactors())[step];
+		Matrix F_iter = Load::GetReducedLoadMatrix(Fmult, structManager->Supports(), setUp->DOF());
+		Matrix d_iter = MatrixOperation::FullCholesky(mRed, F_iter);
+		Matrix completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, structManager, setUp);
 
-		nodesPerIter.emplace_back(Displacement::GetNewNodalCoordinates(listOfNodes, completeD_iter)); //this will put the new nodal coordinates on the 'nodesPerIter'
-		//nodesPerIter.emplace_back(completeD_iter); //this will put only the displacements in the 'nodesPerIter'
+		//this is just a recorder. It is not being used for the rest of the analysis
+		//dispRecorder->Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_iter)); //this will put the new nodal coordinates on the 'nodesPerIter'
 	}
 
-	FileOperation::SaveIterationsResult("LoadStep", nodesPerIter, originalList);
+	//FileOperation::SaveIterationsResult("LoadStep", dispRecorder, structManager->Nodes());
 }
 
 //Displacement-load method.
-void IterationManager::PerformAnalysisWithIterationsMatNonlinearDispBased(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, 
-																		  std::vector<Load> &listOfLoads, std::vector<Support> &listOfSups, int nIter, int nLoadSteps, std::string type,
-																		  double cyclicRepeat, int stepsPerPeak, double peakInc, int cyclesPerPeak, double iniPeak, std::string &fileName) {
+void IterationManager::PerformMatNonlinearAnalysis(const StructureManager* structManager, const PreAnalysisSetUp* setUp, std::string &fileName) {
 	
 	// <Start of setting up of variables useful during the analysis>
-	std::vector<Node> originalList = listOfNodes; //Gets a copy of the list of nodes in their original positions in case they get changed during the analysis
-	int DOF = 6; //number of DOFs considered
-	std::vector<std::vector<Node>> nodesPerStep; //stores the new nodal coordinates after each complete iteration
-	std::vector<Matrix> forcePerStep; //stores the forces on each node at each completed loadstep
-	int totalSteps = Load::DefineTotalLoadSteps(type, nLoadSteps, cyclicRepeat, 0, 0);
-	nodesPerStep.reserve(totalSteps); //reserve the amount of memory that I know it will consume
-	bool breakAnalysis = false; //indicates if the analysis should be stopped
-	Matrix unorganizedDisplacement(listOfNodes.size()*DOF, 1); //The matrix composed of the displacements of the free nodes on top of the displacements of the resitricted nodes, regardless of their DOFs
-	Matrix forceMatrix(listOfNodes.size()*DOF - Support::TotalDOFsRestrained(listOfSups), 1); //The matrix to store the resulting forces at the end of each loadstep
+	NodalRecorder<Node> dispRecorder(structManager->Nodes()); //stores the new nodal coordinates after each complete iteration
+	NodalRecorder<Load> forceRecorder(structManager->Nodes()); //stores the forces on each node after each complete iteration
+	
+	Matrix unorganizedDisplacement(*setUp->StiffMatrixSize(), 1); //The matrix composed of the displacements of the free nodes on top of the displacements of the restricted nodes, regardless of their DOFs
+	Matrix forceMatrix(*setUp->ReducedStiffMatrixSize(), 1); //The matrix to store the resulting forces at the end of each loadstep
 
 	// <Start of several list of spring data used to enable the localization of each srping in its cyclic material model
-	std::vector<std::vector<double>> oldListOfDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> newListOfDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> listOfMinDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> listOfMaxDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> oldListOfMinDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> oldListOfMaxDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> newListOfPlasticDisps; //Used to update the stiffness of the springs
-	std::vector<std::vector<double>> oldListOfPlasticDisps; //Used to update the stiffness of the springs
-	std::vector<std::vector<double>> oldListOfUnlDisp; //Use to check when to conenct between unload and reload branchs
-	std::vector<std::vector<double>> oldListOfRelDisp;
-	std::vector<std::vector<double>> listOfUnlDisp; //Use to check when to conenct between unload and reload branchs
-	std::vector<std::vector<double>> listOfRelDisp;
-	std::vector<std::vector<double>> maxDispPerIter;
-	std::vector<std::vector<double>> minDispPerIter;
-	std::vector<std::vector<double>> unlDispPerIter;
-	std::vector<std::vector<double>> relDispPerIter;
-	std::vector<std::vector<std::string>> oldSpringStages;
-	std::vector<std::vector<std::string>> newSpringStages;
-	std::vector<std::vector<std::string>> listOfSpringLoadingStages;
+	AnalysisSpringRecorder springRecord('a', structManager->SpringElements());
 	// <End of several list of spring data used to enable the localization of each srping in its cyclic material model
 
-	Displacement::ZeroOutPositionVectorsOfSprings(oldListOfDisps, newListOfDisps, listOfSprings, listOfMinDisps, listOfMaxDisps, oldListOfMinDisps, oldListOfMaxDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, listOfUnlDisp, listOfRelDisp, oldListOfUnlDisp, oldListOfRelDisp, maxDispPerIter, minDispPerIter, unlDispPerIter, relDispPerIter, oldSpringStages, newSpringStages);
 	// <End of setting up of variables useful during the analysis>
 
 	//<Start of calculations that are not required to be performed every loadstep>
-	Matrix Fconst = Load::AssembleLoadMatrixWithFlag(listOfNodes, listOfLoads, "constant"); //assembles the matrix of constant forces
-	Matrix Finc = Load::AssembleLoadMatrixWithFlag(listOfNodes, listOfLoads, "increment"); //assembles the matrix of incremental forces
-	std::vector<int> indexes = Load::IdentifyIncrementalLoads(listOfLoads); //Identify which DOFs are incremental loads
-	Matrix FConstRed = Load::GetReducedLoadMatrix(Fconst, listOfSups); //reduced version of the matrix of constant forces
-	Matrix FIncRed = Load::GetReducedLoadMatrix(Finc, listOfSups); //reduced version of the matrix of incremental forces
-	
-	std::vector<std::vector<ShellElement>> shellElemVecs = Solver::SetUpThreadsForShells(listOfShells, std::thread::hardware_concurrency()); //separates the total shell elements amongst the available threads
-	Matrix shellStiff = Solver::CompleteShellStiffMatrixThreads(listOfNodes, listOfShells, listOfSups, std::thread::hardware_concurrency(), shellElemVecs); //calcualtes the reduced stiffness amtrix only accounting for the shell elements
-	Matrix shellRestricStiff = Solver::CompleteShellRestrictedStiffMatrixThreads(listOfNodes, listOfShells, listOfSups, std::thread::hardware_concurrency(), shellElemVecs); //calculates the stiffness matrix of the restricted DOFs accounting only for the shell elements
+	Matrix FConstRed = Load::GetReducedLoadMatrix(*setUp->ConstForces(), structManager->Supports(), setUp->DOF()); //reduced version of the matrix of constant forces
+	Matrix FIncRed = Load::GetReducedLoadMatrix(*setUp->IncForces(), structManager->Supports(), setUp->DOF()); //reduced version of the matrix of incremental forces
+
+	Matrix shellStiff = Solver::ReducedShellStiffMatrix(structManager, setUp); //calcualtes the reduced stiffness amtrix only accounting for the shell elements
+	Matrix shellRestricStiff = Solver::ShellRestrictedStiffMatrix(structManager, setUp); //calculates the stiffness matrix of the restricted DOFs accounting only for the shell elements
 
 	//Perform the load steps
-	for (int step = 0; step < totalSteps; step++) {
+	for (int step = 0; step < *setUp->LoadSteps(); step++) {
 		std::cout << "" << std::endl;
 		std::cout << "Loadstep " << step + 1 << std::endl;
 		std::cout << "Iteration " << 1 << std::endl;
 
 		//<Start of matrix stiffness solving>
-		Matrix m(shellStiff.GetDimX(), shellStiff.GetDimY()); //Initializes the 'total' reduced matrix
-		Solver::CompleteSpringStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter); //this will update 'm' with the values of the spring elements
-		Matrix mRed = m + shellStiff; //complete reduced total stiffness matrix
-		double highStiff = MatrixOperation::GetBiggestDiagTerm(mRed);
-		Solver::DisplacementLoadStiffness(mRed, listOfSups, highStiff); //adds the big stiffness term to account for displacement loads, if any
-		double fraction = Load::DefineLoadFractionAtLoadStep(type, step, totalSteps, stepsPerPeak, peakInc, cyclesPerPeak, iniPeak);
-		Matrix F_iter = FConstRed + FIncRed * fraction; //adds the constant and incremental terms of the applied laods, considering the current loadstep
-		Solver::DisplacementLoadForce(F_iter, listOfSups, newListOfPlasticDisps, listOfSprings, listOfMinDisps, listOfMaxDisps, highStiff, fraction, newListOfDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter); //adds the big stiffness term times the displacement amount to the force matrix
+		//Create a function tthat does all these operations and return the Reduced Stiff
+		Matrix mRed = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, &_biggestStiffVal);
+
+		//Create a function that does all these operations and return the Reduced Force
+		Matrix F_iter = Solver::ReducedForceMatrix(FConstRed, FIncRed, structManager, setUp, &step, &_biggestStiffVal, &springRecord);
+		
 		Matrix d_iter = MatrixOperation::FullCholesky(mRed, F_iter); //solving the F = Kd system using Cholesky
-		Matrix completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, listOfSups, listOfNodes); //displacements of all nodes
+		Matrix completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, structManager, setUp); //displacements of all nodes
 		//<End of matrix stiffness solving>
 
-		Displacement::UpdatePositionVectorsOfSprings(oldListOfDisps, newListOfDisps, completeD_iter, listOfSprings, listOfMinDisps, listOfMaxDisps, oldListOfMinDisps, oldListOfMaxDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, listOfUnlDisp, listOfRelDisp, oldListOfUnlDisp, oldListOfRelDisp, maxDispPerIter, minDispPerIter, unlDispPerIter,relDispPerIter, oldSpringStages, newSpringStages); //This function is responsible for updating all the parameters relevant tot he identification of which region the spring is at in its cyclic material model
+		Displacement::UpdatePositionVectorsOfSprings(&completeD_iter, structManager->SpringElements(), &springRecord, setUp->DOF()); //This function is responsible for updating all the parameters relevant tot he identification of which region the spring is at in its cyclic material model
 
-		std::vector<Node> newNodes = Displacement::GetNewNodalCoordinates(originalList, completeD_iter); //this add the increment completeD_iter to the list of nodes coord
-		if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(listOfSprings, oldListOfDisps, newListOfDisps, listOfMaxDisps, listOfMinDisps, oldListOfMaxDisps, oldListOfMinDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, 0.001, breakAnalysis, unlDispPerIter, relDispPerIter, oldListOfUnlDisp, oldListOfRelDisp, oldSpringStages, newSpringStages)) { //check if springs have converged
+		if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(structManager, setUp, &springRecord, &_breakAnalysis)) { //check if springs have converged
 			//this means that all spring elements converged. Ready for next loadstep or iteration
-			Spring3D::UpdateSpringLoadStages(listOfSprings, listOfSpringLoadingStages, newSpringStages); //Updates the list that stores the load stages of each spring
+			dispRecorder.Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_iter)); //this add the increment completeD_iter to the list of nodes coord
+
+			Spring3D::UpdateSpringLoadStages(structManager->SpringElements(), &springRecord); //Updates the list that stores the load stages of each spring
 			
 			//<Start of solving the restricted stiffness equations to obtain reactions>
-			Matrix m2(shellRestricStiff.GetDimX(), shellRestricStiff.GetDimY());
-			Solver::CompleteSpringRestrictedStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m2, listOfSups, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter);
-			Matrix mRest = shellRestricStiff + m2;
-			Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(d_iter, listOfSups, listOfNodes, listOfSprings, newListOfPlasticDisps);
+			Matrix mRest = Solver::ReducedRestrictStiffnessMatrix(shellRestricStiff, structManager, setUp, &springRecord);
+			Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(d_iter, structManager, *springRecord.GetNewPlasticDisp(), setUp->DOF());
 			Matrix reactions = mRest * totalDisplacement;
 			//<End of solving the restricted stiffness equations to obtain reactions>
 
-			Matrix totalForce = Load::GetTotalForceNotOrganized(F_iter, reactions, listOfSups, listOfNodes); //"Not organized" means that the order on the matrix is not the correct DOF order
-			Matrix completeForce = Load::GetTotalForceMatrix(totalForce, listOfSups, listOfNodes, highStiff, fraction); //Now organized
-			forcePerStep.emplace_back(MatrixOperation::CopyMatrixDouble(completeForce), completeForce.GetDimX(), completeForce.GetDimY()); //storing the total forces on this converged loadstep in the appropriate array
+			Matrix completeForce = Load::GetTotalForceMatrix(F_iter, reactions, structManager, setUp, &_biggestStiffVal, &(*setUp->LoadFactors())[step]); //Now organized
+			forceRecorder.Add(Load::GetNewLoads(forceRecorder.Nodes(), completeForce, setUp->DOF())); //storing the total forces on this converged loadstep in the appropriate array
 			
 			//<Start of updating important lists for cyclic localization>
-			maxDispPerIter = listOfMaxDisps;
-			minDispPerIter = listOfMinDisps;
-			unlDispPerIter = listOfUnlDisp;
-			relDispPerIter = listOfRelDisp;
+			springRecord.UpdatePerIterDisps();
 			//<End of updating important lists for cyclic localization>
 		}
-		else if (breakAnalysis) { //if convergence test returns a 'breakAnalysis' flag.
+		else if (_breakAnalysis) { //if convergence test returns a 'breakAnalysis' flag.
 			std::cout << "Analysis didn't converge at loadstep " << step + 1 << " and iteration " << 1 << std::endl;
 			break; //this will exit this for loop
 		}
 		else { //if the convergence test failed. This means not all spring element converged. Need to do iterations in order to converge before going to next loadStep.
-			bool converged = false; //flag that indicates if the analysis has converged
-			//F_iter.DestroyMatrixDouble(); //this need to be destroyed before the next iteration because the previous matrix have different displacement factors.
 
-
-			for (int i = 0; i < nIter - 1; i++) { //Perform the iterations
+			for (int i = 0; i < *setUp->Iterations() - 1; i++) { //Perform the iterations
 				std::cout << "Iteration " << i + 2 << std::endl;
 
 				// <Start of stiffness matrix solving of the displacements>
-				Matrix m(shellStiff.GetDimX(), shellStiff.GetDimY());
-				Solver::CompleteSpringStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter);
-				Matrix mRed = m + shellStiff;
-				double highStiff = MatrixOperation::GetBiggestDiagTerm(mRed);
-				Solver::DisplacementLoadStiffness(mRed, listOfSups, highStiff); //adds the big stiffness term to account for displacement laods
-				Matrix F_iter = FConstRed + FIncRed * fraction;
-				Solver::DisplacementLoadForce(F_iter, listOfSups, newListOfPlasticDisps, listOfSprings, listOfMinDisps, listOfMaxDisps, highStiff, fraction, newListOfDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter); //adds the big stiffness term times the displacement amount to the force matrix
+				Matrix mRed = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, &_biggestStiffVal);
+
+				Matrix F_iter = Solver::ReducedForceMatrix(FConstRed, FIncRed, structManager, setUp, &step, &_biggestStiffVal, &springRecord);
+
 				Matrix dNew = MatrixOperation::FullCholesky(mRed, F_iter);
-				Matrix completeD_prime = Displacement::GetTotalDisplacementMatrix(dNew, listOfSups, listOfNodes);
+				Matrix completeD_prime = Displacement::GetTotalDisplacementMatrix(dNew, structManager, setUp);
 				// <End of stiffness matrix solving of the displacements>
 
-				Displacement::UpdatePositionVectorsOfSprings(oldListOfDisps, newListOfDisps, completeD_prime, listOfSprings, listOfMinDisps, listOfMaxDisps, oldListOfMinDisps, oldListOfMaxDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, listOfUnlDisp, listOfRelDisp, oldListOfUnlDisp, oldListOfRelDisp, maxDispPerIter, minDispPerIter, unlDispPerIter, relDispPerIter, oldSpringStages, newSpringStages);
+				Displacement::UpdatePositionVectorsOfSprings(&completeD_prime, structManager->SpringElements(), &springRecord, setUp->DOF());
 
-				newNodes = Displacement::GetNewNodalCoordinates(originalList, completeD_prime); //this add the increment completeD_iter to the list of nodes coord
-				if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(listOfSprings, oldListOfDisps, newListOfDisps, listOfMaxDisps, listOfMinDisps, oldListOfMaxDisps, oldListOfMinDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, 0.001, breakAnalysis, unlDispPerIter, relDispPerIter, oldListOfUnlDisp, oldListOfRelDisp, oldSpringStages, newSpringStages)) {
+				if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(structManager, setUp, &springRecord, &_breakAnalysis) || (i == *setUp->Iterations() - 2)) { //the last part of this check will go inside this if even if the convergence is not achieved BUT it is the last iteration
 					
-					Spring3D::UpdateSpringLoadStages(listOfSprings, listOfSpringLoadingStages, newSpringStages);
+					if (i == *setUp->Iterations() - 2) {
+						std::cout << "Loadstep " << step + 1 << " did not converge!" << std::endl;
+					}
+
+					dispRecorder.Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_prime)); //this add the increment completeD_iter to the list of nodes coord
+
+					Spring3D::UpdateSpringLoadStages(structManager->SpringElements(), &springRecord);
 					
 					//<Start of solving the restricted stiffness equations to obtain reactions>
-					Matrix m2(shellRestricStiff.GetDimX(), shellRestricStiff.GetDimY());
-					Solver::CompleteSpringRestrictedStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m2, listOfSups, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter);
-					Matrix mRest = shellRestricStiff + m2;
-					Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(dNew, listOfSups, listOfNodes, listOfSprings, newListOfPlasticDisps);
+					Matrix mRest = Solver::ReducedRestrictStiffnessMatrix(shellRestricStiff, structManager, setUp, &springRecord);
+					Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(dNew, structManager, *springRecord.GetNewPlasticDisp(), setUp->DOF());
 					Matrix reactions = mRest * totalDisplacement;
 					//<End of solving the restricted stiffness equations to obtain reactions>
 
-					Matrix totalForce = Load::GetTotalForceNotOrganized(F_iter, reactions, listOfSups, listOfNodes);
-					Matrix completeForce = Load::GetTotalForceMatrix(totalForce, listOfSups, listOfNodes, highStiff, fraction);
-					forcePerStep.emplace_back(MatrixOperation::CopyMatrixDouble(completeForce), completeForce.GetDimX(), completeForce.GetDimY());
+					Matrix completeForce = Load::GetTotalForceMatrix(F_iter, reactions, structManager, setUp, &_biggestStiffVal, &(*setUp->LoadFactors())[step]); //Now organized
+					forceRecorder.Add(Load::GetNewLoads(forceRecorder.Nodes(), completeForce, setUp->DOF())); //storing the total forces on this converged loadstep in the appropriate array
 
 					//<Start of updating important lists for cyclic localization>
-					maxDispPerIter = listOfMaxDisps;
-					minDispPerIter = listOfMinDisps;
-					unlDispPerIter = listOfUnlDisp;
-					relDispPerIter = listOfRelDisp;
+					springRecord.UpdatePerIterDisps();
 					//<End of updating important lists for cyclic localization>
 
-					converged = true;
 					break; //this will exit the for loop
 				}
 
-				if (breakAnalysis) {
+				if (_breakAnalysis) {
 					std::cout << "Analysis didn't converge at loadstep " << step + 1 << " and iteration " << i + 2 << std::endl;
 					break; //this will exit this for loop
 				}
 
 				//This will run if analysis did not converge in this iteration
 				completeD_iter.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(completeD_prime));
-
-				//The next two are storing important info on variables declared outside of this for loop so it can be used by outside functions
-				unorganizedDisplacement = Displacement::GetTotalDisplacementNotOrganized(dNew, listOfSups, listOfNodes, listOfSprings, newListOfPlasticDisps);
-				forceMatrix.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(F_iter));
-			}
-			if (!converged) {
-				std::cout << "Loadstep " << step + 1 << " did not converge!" << std::endl;
-				//if the iteration converged, this line of code does not need to be run
-				Spring3D::UpdateSpringLoadStages(listOfSprings, listOfSpringLoadingStages, newSpringStages);
-				
-				//<Start of solving the restricted stiffness equations to obtain reactions>
-				Matrix m2(shellRestricStiff.GetDimX(), shellRestricStiff.GetDimY());
-				Solver::CompleteSpringRestrictedStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m2, listOfSups, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter);
-				Matrix mRest = shellRestricStiff + m2;
-				Matrix reactions = mRest * unorganizedDisplacement;
-				//<End of solving the restricted stiffness equations to obtain reactions>
-
-				Matrix totalForce = Load::GetTotalForceNotOrganized(forceMatrix, reactions, listOfSups, listOfNodes);
-				Matrix completeForce = Load::GetTotalForceMatrix(totalForce, listOfSups, listOfNodes, highStiff, fraction);
-				forcePerStep.emplace_back(MatrixOperation::CopyMatrixDouble(completeForce), completeForce.GetDimX(), completeForce.GetDimY());
-				
-				//<Start of updating important lists for cyclic localization>
-				maxDispPerIter = listOfMaxDisps;
-				minDispPerIter = listOfMinDisps;
-				unlDispPerIter = listOfUnlDisp;
-				relDispPerIter = listOfRelDisp;
-				//<End of updating important lists for cyclic localization>
 			}
 		}
 
-		if (breakAnalysis) {
+		if (_breakAnalysis) {
 			break;  //this will exit this for loop
 		}
-
-		nodesPerStep.emplace_back(newNodes);
 	}
-
-	FileOperation::SaveIterationsResult("LoadStep", nodesPerStep, originalList);
-	FileOperation::SaveIterationsForceResult("ForceStep", forcePerStep);
+	FileOperation::SaveResultsFile(fileName, structManager, &dispRecorder, &forceRecorder);
 }
 
 //Displacement-load method.
-void IterationManager::PerformDynamicAnalysisWithIterationsMatNonlinearDispBased(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, 
-																				 std::vector<Load> &listOfLoads, std::vector<Mass> &listOfMasses, std::vector<Support> &listOfSups, SeismicLoad &sLoad, 
-																			     ImpulseLoad &impLoad, int nIter, int nLoadSteps, std::string type, std::string& fileName) {
+/*
+void IterationManager::PerformDynamicAnalysisWithIterationsMatNonlinearDispBased(const StructureManager* structManager, const PreAnalysisSetUp* setUp, std::string& fileName) {
 
 	// <Start of setting up of variables useful during the analysis>
-	std::vector<Node> originalList = listOfNodes; //Gets a copy of the list of nodes in their original positions in case they get changed during the analysis
-	int DOF = 6; //number of DOFs considered
-	std::vector<std::vector<Node>> nodesPerStep; //stores the new nodal coordinates after each complete iteration
-	std::vector<Matrix> forcePerStep; //stores the forces on each node at each completed loadstep
+	NodalRecorder<Node> dispRecorder(structManager->Nodes()); //stores the new nodal coordinates after each complete iteration
+	NodalRecorder<Load> forceRecorder(structManager->Nodes()); //stores the forces on each node after each complete iteration
+	//Only used in dynamic analyses
 	std::vector<Matrix> velPerStep; //stores the velocities on each node at each completed loadstep
 	std::vector<Matrix> accPerStep; //stores the acceleration on each node at each completed loadstep
-	double reducedDOF = listOfNodes.size()*DOF - Support::TotalDOFsRestrained(listOfSups);
-	double deltaT;
-	double totalTime;
-	if (type == "seismic") {
-		deltaT = 0.005;
-		totalTime = sLoad.GetTime()[0] * sLoad.GetRecords()[0].size();
-	}
-	else if (type == "impulse") {
-		deltaT = 0.0005;
-		totalTime = impLoad.GetPoints()[impLoad.GetPoints().size() - 1][0] + 1.93;
-	}
-	else {
-		deltaT = 0.01;
-		totalTime = 10;
-	}
-
-	int totalSteps = Load::DefineTotalLoadSteps(type, nLoadSteps, 0, totalTime, deltaT);
-	nodesPerStep.reserve(totalSteps); //reserve the amount of memory that I know it will consume
-	bool breakAnalysis = false; //indicates if the analysis should be stopped due to critical non-convergence
-	Matrix redDisplacement(reducedDOF, 1); //The matrix composed of the displacements of the free nodes on top of the displacements of the resitricted nodes, regardless of their DOFs
-	Matrix forceMatrix(reducedDOF, 1); //The matrix to store the resulting forces at the end of each loadstep
 
 	// <Start of several list of spring data used to enable the localization of each srping in its cyclic material model
-	std::vector<std::vector<double>> oldListOfDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> newListOfDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> listOfMinDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> listOfMaxDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> oldListOfMinDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> oldListOfMaxDisps; //Used to update the forces on the springs inside a substep
-	std::vector<std::vector<double>> newListOfPlasticDisps; //Used to update the stiffness of the springs
-	std::vector<std::vector<double>> oldListOfPlasticDisps; //Used to update the stiffness of the springs
-	std::vector<std::vector<double>> oldListOfUnlDisp; //Use to check when to conenct between unload and reload branchs
-	std::vector<std::vector<double>> oldListOfRelDisp;
-	std::vector<std::vector<double>> listOfUnlDisp; //Use to check when to conenct between unload and reload branchs
-	std::vector<std::vector<double>> listOfRelDisp;
-	std::vector<std::vector<double>> maxDispPerIter;
-	std::vector<std::vector<double>> minDispPerIter;
-	std::vector<std::vector<double>> unlDispPerIter;
-	std::vector<std::vector<double>> relDispPerIter;
-	std::vector<std::vector<std::string>> oldSpringStages;
-	std::vector<std::vector<std::string>> newSpringStages;
-	std::vector<std::vector<std::string>> listOfSpringLoadingStages;
-
+	AnalysisSpringRecorder springRecord('a', structManager->SpringElements());
 	//Matrices that will store the values for the displacements, velocities and accelerations of the previous loadstep
-	Matrix prevDisp(reducedDOF, 1);
-	Matrix prevVel(reducedDOF, 1);
-	Matrix prevAcc(reducedDOF, 1);
+	
+	//Only used in dynamic analyses
+	Matrix prevDisp(*setUp->ReducedStiffMatrixSize(), 1);
+	Matrix prevVel(*setUp->ReducedStiffMatrixSize(), 1);
+	Matrix prevAcc(*setUp->ReducedStiffMatrixSize(), 1);
 	// <End of several list of spring data used to enable the localization of each srping in its cyclic material model
-
-	//Initialize the values of the lists to zero or a string value. 
-	Displacement::ZeroOutPositionVectorsOfSprings(oldListOfDisps, newListOfDisps, listOfSprings, listOfMinDisps, listOfMaxDisps, oldListOfMinDisps, oldListOfMaxDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, listOfUnlDisp, listOfRelDisp, oldListOfUnlDisp, oldListOfRelDisp, maxDispPerIter, minDispPerIter, unlDispPerIter, relDispPerIter, oldSpringStages, newSpringStages);
 	// <End of setting up of variables useful during the analysis>
 
 	//<Start of calculations that are not required to be performed every loadstep>
-	Matrix Fconst = Load::AssembleLoadMatrixWithFlag(listOfNodes, listOfLoads, "constant"); //assembles the matrix of constant forces
-	Matrix Finc = Matrix(1, 1);
-	if (type == "seismic") {
-		Finc = Load::AssembleLoadMatrixWithFlag(listOfNodes, listOfLoads, "seismic"); //assembles the matrix of seismic forces
-	}
-	else if (type == "impulse") {
-		Finc = Load::AssembleLoadMatrixWithFlag(listOfNodes, listOfLoads, "impulse"); //assembles the matrix of impulse forces
-	}
-	else {
-		Finc = Load::AssembleLoadMatrixWithFlag(listOfNodes, listOfLoads, "increment"); //assembles the matrix of incremental forces
-	}
-	Matrix FConstRed = Load::GetReducedLoadMatrix(Fconst, listOfSups); //reduced (only free DOFs) version of the matrix of constant forces
-	Matrix FIncRed = Load::GetReducedLoadMatrix(Finc, listOfSups); //reduced (only free DOFs) version of the matrix of incremental force
+	Matrix FConstRed = Load::GetReducedLoadMatrix(*setUp->ConstForces(), structManager->Supports(), setUp->DOF()); //reduced version of the matrix of constant forces
+	Matrix FIncRed = Load::GetReducedLoadMatrix(*setUp->IncForces(), structManager->Supports(), setUp->DOF()); //reduced version of the matrix of incremental forces
 
-	std::vector<std::vector<ShellElement>> shellElemVecs = Solver::SetUpThreadsForShells(listOfShells, std::thread::hardware_concurrency()); //separates the total shell elements amongst the available threads
-	Matrix shellStiff = Solver::CompleteShellStiffMatrixThreads(listOfNodes, listOfShells, listOfSups, std::thread::hardware_concurrency(), shellElemVecs); //calcualtes the reduced stiffness amtrix only accounting for the shell elements
-	Matrix m(shellStiff.GetDimX(), shellStiff.GetDimY()); //Initializes the 'total' reduced matrix
-	Solver::CompleteSpringStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter); //this will update 'm' with the values of the spring elements
-	Matrix modalTotalStiffMatrix = m + shellStiff; //complete reduced total stiffness matrix. Used for modal analysis purposes
-	Matrix shellRestricStiff = Solver::CompleteShellRestrictedStiffMatrixThreads(listOfNodes, listOfShells, listOfSups, std::thread::hardware_concurrency(), shellElemVecs); //calculates the stiffness matrix of the restricted DOFs accounting only for the shell elements
-	Matrix shellMass = Solver::CompleteShellMassMatrixThreads(listOfNodes, listOfShells, listOfSups, std::thread::hardware_concurrency(), shellElemVecs);
-	Matrix totMass = Mass::AddExplicitMassesOnExistingMatrix(shellMass, listOfMasses, listOfSups); //adds any additional mass to the existing shell masses
+	Matrix shellStiff = Solver::ReducedShellStiffMatrix(structManager, setUp);
+	//Only used in dynamic analyses
+	Matrix shellMass = Solver::CompleteShellMassMatrixThreads(structManager, setUp);
+	//This is the same as the first stiffness matrix
 
-	//Matrix modalTotalStiffMatrix(MatrixOperation::CopyMatrixDouble(totalStiff), shellStiff.GetDimX(), shellStiff.GetDimY()); //copy of the total stiffness matrix that will be modified in the modal analysis calculatiosn
+	Matrix shellRestricStiff = Solver::ShellRestrictedStiffMatrix(structManager, setUp); //calculates the stiffness matrix of the restricted DOFs accounting only for the shell elements
 
 	std::vector<double> natFreq; //vector that will store the values of the natural frequencies
-	Matrix modeShapes; //matrix that will store the displacement values for the different modes
-	std::vector<std::vector<int>> totalMassDOFVec = ShellElement::GetTotalGlobalMassDOFVector(listOfShells); //gets a vector of all the DOFS that DO NOT Have mass. It is used everytime the matrices are required to be reduced only to the DOFS that have mass
-	Solver::CalculateNaturalFrequenciesAndModeShapes(modalTotalStiffMatrix, totMass, natFreq, modeShapes, totalMassDOFVec); //Calculates the nat freqs and mode shapes and store them on the natFreq vector and the modeShapes Matrix
-	Matrix totalModes = Solver::GetTotalModalMatrix(modeShapes, listOfSups, listOfNodes, listOfShells, listOfMasses); //Creates a matrix similar to modeShapes, but will all DOFS, not only the DOFS with masses
+	std::vector<std::vector<int>> totalMassDOFVec = ShellElement::GetTotalGlobalMassDOFVector(structManager->ShellElements()); //gets a vector of all the DOFS that DO NOT Have mass. It is used everytime the matrices are required to be reduced only to the DOFS that have mass
+	Matrix modalTotalStiffMatrix = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, &_biggestStiffVal);
+	Matrix totalModes = Solver::CalculateNaturalFrequenciesAndModeShapes(modalTotalStiffMatrix, shellMass, &natFreq, &totalMassDOFVec, structManager, setUp); //Creates a matrix similar to modeShapes, but will all DOFS, not only the DOFS with masses
 	
-	std::vector<double> rayleighConstants; //vector to store the rayleigh constants
-	rayleighConstants.reserve(2);
-	int mode1 = 1, mode2 = 2; //for now
-	double damp1 = 0, damp2 = 0; //for now
-	//rayleighConstants = Solver::RayleighDampingConstants(mode1, damp1, mode2, damp2, natFreq);
+	std::vector<double> rayleighConstants = Solver::RayleighDampingConstants(setUp, &natFreq);; //vector to store the rayleigh constants
 	
-	//Wilson-Theta: Gama = 1/2, Beta = 1/6, Theta = 1.42, alpha = 0; HTT-alpha: Gama = 0.6, Beta 0.3025, theta = 1, alpha = 0.1
-	TimeIntegrationMethod IntMethod(IntegrationMethod::AverageNewmark);
-
 	//Perform the load steps
-	for (int step = 0; step < totalSteps; step++) {
+	for (int step = 0; step < *setUp->LoadSteps(); step++) {
 		std::cout << "" << std::endl;
 		std::cout << "Loadstep " << step + 1 << std::endl;
 		std::cout << "Iteration " << 1 << std::endl;
 
-		double time = (step + 1) * deltaT;
+		DynamicAnalysis* analysis = static_cast<DynamicAnalysis*>(setUp->Analysis());
+		double time = (step + 1) * *analysis->DeltaT();
 
 		//<Start of matrix stiffness solving>
 		//<Set up stiffness matrix>
-		Matrix m(shellStiff.GetDimX(), shellStiff.GetDimY()); //Initializes the 'total' reduced matrix
-		Solver::CompleteSpringStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter); //this will update 'm' with the values of the spring elements
-		Matrix mRed = m + shellStiff; //complete reduced total stiffness matrix
-
+		Matrix mRed = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, &_biggestStiffVal);
 		//<End Set up stiffness Matrix>
 
 		//<Set up damping matrix>
 		Matrix damp(mRed.GetDimX());
-		if (damp1 != 0 || damp2 != 0) {
-			Matrix damp = Solver::RayleighDampingMatrix(totMass, mRed, rayleighConstants);
+		if (*analysis->Damp1() != 0 || *analysis->Damp2() != 0) {
+			Matrix damp = Solver::RayleighDampingMatrix(shellMass, mRed, &rayleighConstants);
 		}
 		//<End set up damping matrix>
 
 		//<Set dynamic 'stiff' matrix>
-		double const1 = (1 - IntMethod.GetAlphaF()) * IntMethod.GetNewmarkGama() * IntMethod.GetWilsonTheta()  * deltaT;
-		double constM = 1 - IntMethod.GetAlphaM();
-		double const2 = IntMethod.GetNewmarkBeta() * pow(IntMethod.GetWilsonTheta()  * deltaT, 2);
-		Matrix mult2 = totMass * constM; //kept separate to be used in a subsequent iteration
-		Matrix add = (mult2 + damp * const1); //kept separate so it can be used below
-		Matrix kDyn = add * (1 / const2);
-
-		Matrix totStiff = mRed * (1 - IntMethod.GetAlphaF()) + kDyn;
-
-		double highStiff = 0;
+		Matrix add(*setUp->ReducedStiffMatrixSize());
+		Matrix mult2(*setUp->ReducedStiffMatrixSize());
+		Matrix kDyn = Solver::ReducedDynamicStiffnessMatrix(setUp, shellMass, damp, add, mult2);
+		Matrix totStiff = mRed * (1 - analysis->IntegrationMethod()->GetAlphaF()) + kDyn;
 		//<End set dynamic stiff matrix>
 
 		//<Set up dynamic force>
-		Matrix prevTerm = (prevDisp * (1 / pow(IntMethod.GetWilsonTheta() * deltaT, 2)) + prevVel * (1 / (IntMethod.GetWilsonTheta() * deltaT)) + prevAcc * 0.5) * (1 / IntMethod.GetNewmarkBeta());
-		Matrix firstMatrix = add * prevTerm;
-
-		Matrix add11 = (prevVel + prevAcc * (IntMethod.GetWilsonTheta()  * deltaT) * (1 - IntMethod.GetAlphaF())); //kept separate to be used below
-		Matrix secondMatrix = damp * add11;
-
-		Matrix thirdMatrix = totMass * prevAcc;
-
-		Matrix load(1, 1);
-		Matrix prevLoad(1, 1);
-		if (type == "seismic") {
-			load = (totMass * SeismicLoad::GetSeismicLoadVector(sLoad, FIncRed, time)) * (-1);
-			prevLoad = (totMass * SeismicLoad::GetSeismicLoadVector(sLoad, FIncRed, time - deltaT)) * (-1);
-		}
-		else if (type == "impulse") {
-			load = FIncRed * ImpulseLoad::LoadFromTime(impLoad, time);
-			prevLoad = FIncRed * ImpulseLoad::LoadFromTime(impLoad, time - deltaT);
-		}
-		else {
-			double magnitude = 33000;
-			double period = 1;
-			load = FIncRed * (Load::SampleDynamicForceFunction(magnitude, (1 / period) * 2 * 3.1415, 0, time));
-			prevLoad = FIncRed * Load::SampleDynamicForceFunction(magnitude, (1 / period) * 2 * 3.1415, 0, time - deltaT);
-		}
-
-		Matrix FInc1 = (load * (IntMethod.GetWilsonTheta()  * (1 - IntMethod.GetAlphaF())));
-		Matrix FInc2(FInc1.GetDimX(), 1);
-		if (IntMethod.GetAlphaF() == 0) {
-			FInc2 = (prevLoad * (1 - IntMethod.GetWilsonTheta()));
-		}
-		else {
-			FInc2 = (prevLoad * (IntMethod.GetAlphaF()));
-		}
-		Matrix deltaF = FInc1 + FInc2;//kept separate to be used below
-		Matrix FIncDyn = deltaF - mRed * IntMethod.GetAlphaF() * prevDisp;
-		Matrix FDyn = FIncDyn + firstMatrix - secondMatrix - thirdMatrix;
+		Matrix add11(*setUp->ReducedStiffMatrixSize(), 1);
+		Matrix FDyn = Solver::CalculateDynamicForce(prevDisp, prevVel, prevAcc, add, damp, shellMass, FIncRed, mRed, add11, setUp, &time);
 		//<End of set up dynamic force>
 
-
 		Matrix F_iter = FConstRed + FDyn; //adds the constant and incremental terms of the applied laods, considering the current loadstep
-		Solver::PlasticDisplacementLoadForce(F_iter, listOfSups, newListOfPlasticDisps, listOfSprings, listOfMinDisps, listOfMaxDisps, newListOfDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter);
+		Solver::PlasticDisplacementLoadForce(F_iter, structManager, setUp, &springRecord);
 		Matrix d_iter = MatrixOperation::FullCholesky(totStiff, F_iter); //solving the F = Kd system using Cholesky
 		//<End of matrix stiffness solving>
 
 		//<Calculate aceleration and velocity>
-		Matrix redPrevDisp = ShellElement::ReducedAccelerationForceMatrix(prevDisp, totalMassDOFVec);
-		Matrix redVel = ShellElement::ReducedAccelerationForceMatrix(prevVel, totalMassDOFVec);
-		Matrix redAcc = ShellElement::ReducedAccelerationForceMatrix(prevAcc, totalMassDOFVec);
+		Matrix redPrevDisp = ShellElement::ReducedAccelerationForceMatrix(prevDisp, &totalMassDOFVec, setUp->DOF());
+		Matrix redVel = ShellElement::ReducedAccelerationForceMatrix(prevVel, &totalMassDOFVec, setUp->DOF());
+		Matrix redAcc = ShellElement::ReducedAccelerationForceMatrix(prevAcc, &totalMassDOFVec, setUp->DOF());
 		Matrix acc(1, 1);
 		Matrix curVel(1, 1);
 		Matrix completeD_iter;
-		IterationManager::CalculateAccelerationAndVelocity(d_iter, totalMassDOFVec, redPrevDisp, redVel, redAcc, IntMethod, deltaT, prevAcc, acc, curVel, prevVel, listOfSups, listOfNodes, completeD_iter);
+		IterationManager::CalculateAccelerationAndVelocity(structManager, setUp, d_iter, &totalMassDOFVec, redPrevDisp, redVel, redAcc, prevAcc, acc, curVel, prevVel, completeD_iter);
 		//<End calcualtion of acc and vel>
 		
-		Displacement::UpdatePositionVectorsOfSprings(oldListOfDisps, newListOfDisps, completeD_iter, listOfSprings, listOfMinDisps, listOfMaxDisps, 
-													 oldListOfMinDisps, oldListOfMaxDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, 
-													 listOfUnlDisp, listOfRelDisp, oldListOfUnlDisp, oldListOfRelDisp, maxDispPerIter, minDispPerIter, unlDispPerIter, relDispPerIter, oldSpringStages, newSpringStages); //This function is responsible for updating all the parameters relevant tot he identification of which region the spring is at in its cyclic material model
+		Displacement::UpdatePositionVectorsOfSprings(&completeD_iter, structManager->SpringElements(), &springRecord, setUp->DOF()); //This function is responsible for updating all the parameters relevant tot he identification of which region the spring is at in its cyclic material model
 
-		std::vector<Node> newNodes = Displacement::GetNewNodalCoordinates(originalList, completeD_iter); //this add the increment completeD_iter to the list of nodes coord
-		if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(listOfSprings, oldListOfDisps, newListOfDisps, listOfMaxDisps, listOfMinDisps, oldListOfMaxDisps, oldListOfMinDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, 0.001, breakAnalysis, unlDispPerIter, relDispPerIter, oldListOfUnlDisp, oldListOfRelDisp, oldSpringStages, newSpringStages)) { //check if springs have converged
+		if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(structManager, setUp, &springRecord, &_breakAnalysis)) { //check if springs have converged
 			//this means that all spring elements converged. Ready for next loadstep or iteration
-			IterationManager::PostConvergenceProcedures(listOfSprings, listOfSpringLoadingStages, newSpringStages, shellRestricStiff, listOfSups, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps,
-				unlDispPerIter, relDispPerIter, d_iter, listOfNodes, F_iter, 0, forcePerStep, velPerStep, accPerStep, curVel, acc, maxDispPerIter, minDispPerIter, listOfUnlDisp, listOfRelDisp, prevDisp, prevVel, prevAcc);
+			dispRecorder.Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_iter)); //this add the increment completeD_iter to the list of nodes coord
+
+			Spring3D::UpdateSpringLoadStages(structManager->SpringElements(), &springRecord); //Updates the list that stores the load stages of each spring
+
+			//<Start of solving the restricted stiffness equations to obtain reactions>
+			Matrix mRest = Solver::ReducedRestrictStiffnessMatrix(shellRestricStiff, structManager, setUp, &springRecord);
+			Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(d_iter, structManager, *springRecord.GetNewPlasticDisp(), setUp->DOF());
+			Matrix reactions = mRest * totalDisplacement;
+			//<End of solving the restricted stiffness equations to obtain reactions>
+
+			Matrix completeForce = Load::GetTotalForceMatrix(F_iter, reactions, structManager, setUp, &_biggestStiffVal, &(*setUp->LoadFactors())[step]); //Now organized
+			forceRecorder.Add(Load::GetNewLoads(forceRecorder.Nodes(), completeForce, setUp->DOF())); //storing the total forces on this converged loadstep in the appropriate array
+			velPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(curVel), curVel.GetDimX(), curVel.GetDimY());
+			accPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(acc), acc.GetDimX(), acc.GetDimY());
+
+			//<Start of updating important lists for cyclic localization>
+			springRecord.UpdatePerIterDisps();
+			//<End of updating important lists for cyclic localization>
+
+			prevDisp.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(d_iter));
+			prevVel.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(curVel));
+			prevAcc.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(acc));
+		
 		}
-		else if (breakAnalysis) { //if convergence test returns a 'breakAnalysis' flag.
+		else if (_breakAnalysis) { //if convergence test returns a 'breakAnalysis' flag.
 			std::cout << "Analysis didn't converge at loadstep " << step + 1 << " and iteration " << 1 << std::endl;
 			break; //this will exit this for loop
 		}
 		else { //if the convergence test failed. This means not all spring element converged. Need to do iterations in order to converge before going to next loadStep.
-			bool converged = false; //flag that indicates if the analysis has converged
-			//F_iter.DestroyMatrixDouble(); //this need to be destroyed before the next iteration because the previous matrix have different displacement factors.
-
-
-			for (int i = 0; i < nIter - 1; i++) { //Perform the iterations
+			
+			for (int i = 0; i < *setUp->Iterations() - 1; i++) { //Perform the iterations
 				std::cout << "Iteration " << i + 2 << std::endl;
 
 				// <Start of stiffness matrix solving of the displacements>
-				Matrix m(shellStiff.GetDimX(), shellStiff.GetDimY());
-				Solver::CompleteSpringStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter);
-				Matrix mRed = m + shellStiff;
+				Matrix mRed1 = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, &_biggestStiffVal);
 				
 				//<Set up damping matrix>
-				Matrix damp(mRed.GetDimX());
-				if (damp1 != 0 || damp2 != 0) {
-					Matrix damp = Solver::RayleighDampingMatrix(totMass, mRed, rayleighConstants);
+				Matrix damp1(mRed1.GetDimX());
+				if (*analysis->Damp1() != 0 || *analysis->Damp2() != 0) {
+					Matrix damp1 = Solver::RayleighDampingMatrix(shellMass, mRed1, &rayleighConstants);
 				}
 				//<End set up damping matrix>
 				
 				//<Set dynamic 'stiff' matrix>
-				Matrix add = mult2 + damp * const1;
-				Matrix kDyn = add * (1 / const2);
-				Matrix totStiff = mRed * (1 - IntMethod.GetAlphaF()) + kDyn;
-				double highStiff = 0;
+				Matrix kDyn1 = Solver::ReducedDynamicStiffnessMatrix(setUp, shellMass, damp1, add,mult2);
+				Matrix totStiff1 = mRed1 * (1 - analysis->IntegrationMethod()->GetAlphaF()) + kDyn1;
 				//<End set dynamic stiff matrix>
 
 				//<Set up dynamic force>
-				Matrix firstMatrix = add * prevTerm;
-				Matrix secondMatrix = damp * add11;
-				Matrix FIncDyn = deltaF - mRed * IntMethod.GetAlphaF() * prevDisp;
-				Matrix FDyn = FIncDyn + firstMatrix - secondMatrix - thirdMatrix;
+				Matrix FDyn1 = Solver::CalculateDynamicForce(prevDisp, prevVel, prevAcc, add, damp1, shellMass, FIncRed, mRed1, add11, setUp, &time);
 				//<End of set up dynamic force>
 
-				Matrix F_iter = FConstRed + FDyn;
-				Solver::PlasticDisplacementLoadForce(F_iter, listOfSups, newListOfPlasticDisps, listOfSprings, listOfMinDisps, listOfMaxDisps, newListOfDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter);
-				Matrix dNew = MatrixOperation::FullCholesky(totStiff, F_iter);
+				Matrix F_iter1 = FConstRed + FDyn1;
+				Solver::PlasticDisplacementLoadForce(F_iter1, structManager, setUp, &springRecord);
+				Matrix dNew = MatrixOperation::FullCholesky(totStiff1, F_iter1);
 				// <End of stiffness matrix solving of the displacements>
 
 				//<Calculate aceleration and velocity>
 				Matrix completeD_prime;
-				IterationManager::CalculateAccelerationAndVelocity(dNew, totalMassDOFVec, redPrevDisp, redVel, redAcc, IntMethod, deltaT, prevAcc, acc, curVel, prevVel, listOfSups, listOfNodes, completeD_prime);
+				IterationManager::CalculateAccelerationAndVelocity(structManager, setUp, dNew, &totalMassDOFVec, redPrevDisp, redVel, redAcc, prevAcc, acc, curVel,prevVel, completeD_prime);
 
 				//<End calcualtion of acc and vel>
 
-				Displacement::UpdatePositionVectorsOfSprings(oldListOfDisps, newListOfDisps, completeD_prime, listOfSprings, listOfMinDisps, listOfMaxDisps, oldListOfMinDisps, oldListOfMaxDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, listOfUnlDisp, listOfRelDisp, oldListOfUnlDisp, oldListOfRelDisp, maxDispPerIter, minDispPerIter, unlDispPerIter, relDispPerIter, oldSpringStages, newSpringStages);
+				Displacement::UpdatePositionVectorsOfSprings(&completeD_prime, structManager->SpringElements(), &springRecord, setUp->DOF()); //This function is responsible for updating all the parameters relevant tot he identification of which region the spring is at in its cyclic material model
 
-				newNodes = Displacement::GetNewNodalCoordinates(originalList, completeD_prime); //this add the increment completeD_iter to the list of nodes coord
-				if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(listOfSprings, oldListOfDisps, newListOfDisps, listOfMaxDisps, listOfMinDisps, oldListOfMaxDisps, oldListOfMinDisps, oldListOfPlasticDisps, newListOfPlasticDisps, listOfSpringLoadingStages, 0.001, breakAnalysis, unlDispPerIter, relDispPerIter, oldListOfUnlDisp, oldListOfRelDisp, oldSpringStages, newSpringStages)) {
+				if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(structManager, setUp, &springRecord, &_breakAnalysis) || (i == *setUp->Iterations() - 2)) { //the last part of this check will go inside this if even if the convergence is not achieved BUT it is the last iteration
+					if (i == *setUp->Iterations() - 2) {
+						std::cout << "Loadstep " << step + 1 << " did not converge!" << std::endl;
+					}
+					
+					dispRecorder.Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_prime)); //this add the increment completeD_iter to the list of nodes coord
 
-					IterationManager::PostConvergenceProcedures(listOfSprings, listOfSpringLoadingStages, newSpringStages, shellRestricStiff, listOfSups, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps,
-						unlDispPerIter, relDispPerIter, dNew, listOfNodes, F_iter, 0, forcePerStep, velPerStep, accPerStep, curVel, acc, maxDispPerIter, minDispPerIter, listOfUnlDisp, listOfRelDisp, prevDisp, prevVel, prevAcc);
+					Spring3D::UpdateSpringLoadStages(structManager->SpringElements(), &springRecord); //Updates the list that stores the load stages of each spring
 
-					converged = true;
+					//<Start of solving the restricted stiffness equations to obtain reactions>
+					Matrix mRest = Solver::ReducedRestrictStiffnessMatrix(shellRestricStiff, structManager, setUp, &springRecord);
+					Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(dNew, structManager, *springRecord.GetNewPlasticDisp(), setUp->DOF());
+					Matrix reactions = mRest * totalDisplacement;
+					//<End of solving the restricted stiffness equations to obtain reactions>
+
+					Matrix completeForce = Load::GetTotalForceMatrix(F_iter1, reactions, structManager, setUp, &_biggestStiffVal, &(*setUp->LoadFactors())[step]); //Now organized
+					forceRecorder.Add(Load::GetNewLoads(forceRecorder.Nodes(), completeForce, setUp->DOF())); //storing the total forces on this converged loadstep in the appropriate array
+					velPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(curVel), curVel.GetDimX(), curVel.GetDimY());
+					accPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(acc), acc.GetDimX(), acc.GetDimY());
+
+					//<Start of updating important lists for cyclic localization>
+					springRecord.UpdatePerIterDisps();
+					//<End of updating important lists for cyclic localization>
+
+					prevDisp.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(dNew));
+					prevVel.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(curVel));
+					prevAcc.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(acc));
+
 					break; //this will exit the for loop
 				}
 
-				if (breakAnalysis) {
+				if (_breakAnalysis) {
 					std::cout << "Analysis didn't converge at loadstep " << step + 1 << " and iteration " << i + 2 << std::endl;
 					break; //this will exit this for loop
 				}
 
 				//This will run if analysis did not converge in this iteration
 				//completeD_iter.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(completeD_prime));
-
-				//The next two are storing important info on variables declared outside of this for loop so it can be used by outside functions
-				redDisplacement.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(dNew));
-				forceMatrix.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(F_iter));
-			}
-			if (!converged) {
-				std::cout << "Loadstep " << step + 1 << " did not converge!" << std::endl;
-				//if the iteration converged, this line of code does not need to be run
-				IterationManager::PostConvergenceProcedures(listOfSprings, listOfSpringLoadingStages, newSpringStages, shellRestricStiff, listOfSups, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps,
-					unlDispPerIter, relDispPerIter, redDisplacement, listOfNodes, forceMatrix, 0, forcePerStep, velPerStep, accPerStep, curVel, acc, maxDispPerIter, minDispPerIter, listOfUnlDisp, listOfRelDisp, prevDisp, prevVel, prevAcc);
 			}
 		}
-
-		if (breakAnalysis) {
+		if (_breakAnalysis) {
 			break;  //this will exit this for loop
 		}
+	}
+	FileOperation::SaveResultsFile(fileName, structManager, &dispRecorder, &forceRecorder, natFreq, totalModes);
+}
+*/
 
-		nodesPerStep.emplace_back(newNodes);
+
+void IterationManager::PerformDynamicAnalysisWithIterationsMatNonlinearDispBased(const StructureManager* structManager, const PreAnalysisSetUp* setUp, std::string& fileName) {
+	// <Start of setting up of variables useful during the analysis>
+	NodalRecorder<Node> dispRecorder(structManager->Nodes()); //stores the new nodal coordinates after each complete iteration
+	NodalRecorder<Load> forceRecorder(structManager->Nodes()); //stores the forces on each node after each complete iteration
+	//Only used in dynamic analyses
+	std::vector<Matrix> velPerStep; //stores the velocities on each node at each completed loadstep
+	std::vector<Matrix> accPerStep; //stores the acceleration on each node at each completed loadstep
+
+	// <Start of several list of spring data used to enable the localization of each srping in its cyclic material model
+	AnalysisSpringRecorder springRecord('a', structManager->SpringElements());
+	// <End of several list of spring data used to enable the localization of each srping in its cyclic material model
+
+	//Only used in dynamic analyses
+	Matrix prevDisp(*setUp->ReducedStiffMatrixSize(), 1);
+	Matrix prevVel(*setUp->ReducedStiffMatrixSize(), 1);
+	Matrix prevAcc(*setUp->ReducedStiffMatrixSize(), 1);
+	std::vector<double> natFreq;
+	std::vector<std::vector<int>> totalMassDOFVec;
+	std::vector<double> rayleighConstants;
+	Matrix totalModes;
+	Matrix shellMass;
+	// <End of setting up of variables useful during the analysis>
+
+	//<Start of calculations that are not required to be performed every loadstep>
+	Matrix FConstRed = Load::GetReducedLoadMatrix(*setUp->ConstForces(), structManager->Supports(), setUp->DOF()); //reduced version of the matrix of constant forces
+	Matrix FIncRed = Load::GetReducedLoadMatrix(*setUp->IncForces(), structManager->Supports(), setUp->DOF()); //reduced version of the matrix of incremental forces
+	Matrix shellStiff = Solver::ReducedShellStiffMatrix(structManager, setUp); //calcualtes the reduced stiffness amtrix only accounting for the shell elements
+	Matrix shellRestricStiff = Solver::ShellRestrictedStiffMatrix(structManager, setUp); //calculates the stiffness matrix of the restricted DOFs accounting only for the shell elements
+
+	bool isDynamic = (setUp->Analysis()->Type() == AnalysisTypes::Seismic || setUp->Analysis()->Type() == AnalysisTypes::Impulse);
+	if (isDynamic) {
+
+		shellMass = Solver::CompleteShellMassMatrixThreads(structManager, setUp);
+		totalMassDOFVec = ShellElement::GetTotalGlobalMassDOFVector(structManager->ShellElements()); //gets a vector of all the DOFS that DO NOT Have mass. It is used everytime the matrices are required to be reduced only to the DOFS that have mass
+		Matrix modalTotalStiffMatrix = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, &_biggestStiffVal);
+		totalModes = Solver::CalculateNaturalFrequenciesAndModeShapes(modalTotalStiffMatrix, shellMass, &natFreq, &totalMassDOFVec, structManager, setUp); //Creates a matrix similar to modeShapes, but will all DOFS, not only the DOFS with masses
+		rayleighConstants = Solver::RayleighDampingConstants(setUp, &natFreq);; //vector to store the rayleigh constants
 	}
 
-	FileOperation::SaveResultsFile(fileName, nodesPerStep, originalList, forcePerStep, natFreq, totalModes);
+	//Perform the load steps
+	for (int step = 0; step < *setUp->LoadSteps(); step++) {
+		std::cout << "" << std::endl;
+		std::cout << "Loadstep " << step + 1 << std::endl;
+		std::cout << "Iteration " << 1 << std::endl;
+
+		DynamicAnalysis* analysis = nullptr;
+		double time;
+
+		if (isDynamic) {
+			analysis = static_cast<DynamicAnalysis*>(setUp->Analysis());
+			time = (step + 1) * *analysis->DeltaT();
+		}
+
+		//<Start of matrix stiffness solving>
+		//Create a function tthat does all these operations and return the Reduced Stiff
+		Matrix mRed = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, &_biggestStiffVal);
+
+		//<Set up damping matrix>
+		Matrix damp(mRed.GetDimX());
+		if (isDynamic) {
+			if (*analysis->Damp1() != 0 || *analysis->Damp2() != 0) {
+				damp = Solver::RayleighDampingMatrix(shellMass, mRed, &rayleighConstants);
+			}
+		}
+		//<End set up damping matrix>
+
+		//<Set dynamic 'stiff' matrix>
+		Matrix add, add11, mult2, FDyn, totStiff;
+		if (isDynamic) {
+			Matrix kDyn = Solver::ReducedDynamicStiffnessMatrix(setUp, shellMass, damp, add, mult2);
+			totStiff = mRed * (1 - analysis->IntegrationMethod()->GetAlphaF()) + kDyn;
+			//<End set dynamic stiff matrix>
+
+			//<Set up dynamic force>
+			FDyn = Solver::CalculateDynamicForce(prevDisp, prevVel, prevAcc, add, damp, shellMass, FIncRed, mRed, add11, setUp, &time);
+			//<End of set up dynamic force>
+		}
+
+		Matrix F_iter, d_iter;
+		if (isDynamic) {
+			F_iter = FConstRed + FDyn; //adds the constant and incremental terms of the applied laods, considering the current loadstep
+			Solver::PlasticDisplacementLoadForce(F_iter, structManager, setUp, &springRecord);
+			d_iter = MatrixOperation::FullCholesky(totStiff, F_iter); //solving the F = Kd system using Cholesky
+
+		}
+		else {
+			F_iter = Solver::ReducedForceMatrix(FConstRed, FIncRed, structManager, setUp, &step, &_biggestStiffVal, &springRecord);
+			d_iter = MatrixOperation::FullCholesky(mRed, F_iter); //solving the F = Kd system using Cholesky
+		}
+
+		Matrix redPrevDisp, redVel, redAcc, acc, curVel, completeD_iter;
+		if (isDynamic) {
+
+			redPrevDisp = ShellElement::ReducedAccelerationForceMatrix(prevDisp, &totalMassDOFVec, setUp->DOF());
+			redVel = ShellElement::ReducedAccelerationForceMatrix(prevVel, &totalMassDOFVec, setUp->DOF());
+			redAcc = ShellElement::ReducedAccelerationForceMatrix(prevAcc, &totalMassDOFVec, setUp->DOF());
+			completeD_iter;
+			IterationManager::CalculateAccelerationAndVelocity(structManager, setUp, d_iter, &totalMassDOFVec, redPrevDisp, redVel, redAcc, prevAcc, acc, curVel, prevVel, completeD_iter);
+
+		}
+		else {
+			completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, structManager, setUp); //displacements of all nodes
+		}
+		//<End of matrix stiffness solving>
+
+		Displacement::UpdatePositionVectorsOfSprings(&completeD_iter, structManager->SpringElements(), &springRecord, setUp->DOF()); //This function is responsible for updating all the parameters relevant tot he identification of which region the spring is at in its cyclic material model
+
+		if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(structManager, setUp, &springRecord, &_breakAnalysis)) { //check if springs have converged
+			//this means that all spring elements converged. Ready for next loadstep or iteration
+			dispRecorder.Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_iter)); //this add the increment completeD_iter to the list of nodes coord
+
+			Spring3D::UpdateSpringLoadStages(structManager->SpringElements(), &springRecord); //Updates the list that stores the load stages of each spring
+
+			//<Start of solving the restricted stiffness equations to obtain reactions>
+			Matrix mRest = Solver::ReducedRestrictStiffnessMatrix(shellRestricStiff, structManager, setUp, &springRecord);
+			Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(d_iter, structManager, *springRecord.GetNewPlasticDisp(), setUp->DOF());
+			Matrix reactions = mRest * totalDisplacement;
+			//<End of solving the restricted stiffness equations to obtain reactions>
+
+			Matrix completeForce = Load::GetTotalForceMatrix(F_iter, reactions, structManager, setUp, &_biggestStiffVal, &(*setUp->LoadFactors())[step]); //Now organized
+			forceRecorder.Add(Load::GetNewLoads(forceRecorder.Nodes(), completeForce, setUp->DOF())); //storing the total forces on this converged loadstep in the appropriate array
+			if (isDynamic) {
+				velPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(curVel), curVel.GetDimX(), curVel.GetDimY());
+				accPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(acc), acc.GetDimX(), acc.GetDimY());
+			}
+
+			//<Start of updating important lists for cyclic localization>
+			springRecord.UpdatePerIterDisps();
+			//<End of updating important lists for cyclic localization>
+
+			if (isDynamic) {
+				prevDisp.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(d_iter));
+				prevVel.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(curVel));
+				prevAcc.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(acc));
+			}
+		}
+		else if (_breakAnalysis) { //if convergence test returns a 'breakAnalysis' flag.
+			std::cout << "Analysis didn't converge at loadstep " << step + 1 << " and iteration " << 1 << std::endl;
+			break; //this will exit this for loop
+		}
+		else { //if the convergence test failed. This means not all spring element converged. Need to do iterations in order to converge before going to next loadStep.
+
+			for (int i = 0; i < *setUp->Iterations() - 1; i++) { //Perform the iterations
+				std::cout << "Iteration " << i + 2 << std::endl;
+
+				// <Start of stiffness matrix solving of the displacements>
+				mRed = Solver::ReducedStiffnessMatrix(shellStiff, structManager, setUp, &springRecord, &_biggestStiffVal);
+
+				if (isDynamic) {
+					if (*analysis->Damp1() != 0 || *analysis->Damp2() != 0) {
+						damp = Solver::RayleighDampingMatrix(shellMass, mRed, &rayleighConstants);
+					}
+				}
+
+				if (isDynamic) {
+					Matrix kDyn = Solver::ReducedDynamicStiffnessMatrix(setUp, shellMass, damp, add, mult2);
+					totStiff = mRed * (1 - analysis->IntegrationMethod()->GetAlphaF()) + kDyn;
+					//<End set dynamic stiff matrix>
+
+					//<Set up dynamic force>
+					FDyn = Solver::CalculateDynamicForce(prevDisp, prevVel, prevAcc, add, damp, shellMass, FIncRed, mRed, add11, setUp, &time);
+					//<End of set up dynamic force>
+				}
+
+				if (isDynamic) {
+					F_iter = FConstRed + FDyn; //adds the constant and incremental terms of the applied laods, considering the current loadstep
+					Solver::PlasticDisplacementLoadForce(F_iter, structManager, setUp, &springRecord);
+					d_iter = MatrixOperation::FullCholesky(totStiff, F_iter);
+				}
+				else {
+					F_iter = Solver::ReducedForceMatrix(FConstRed, FIncRed, structManager, setUp, &step, &_biggestStiffVal, &springRecord);
+					d_iter = MatrixOperation::FullCholesky(mRed, F_iter);
+				}
+
+				if (isDynamic) {
+					IterationManager::CalculateAccelerationAndVelocity(structManager, setUp, d_iter, &totalMassDOFVec, redPrevDisp, redVel, redAcc, prevAcc, acc, curVel, prevVel, completeD_iter);
+				}
+				else {
+					completeD_iter = Displacement::GetTotalDisplacementMatrix(d_iter, structManager, setUp); //displacements of all nodes
+				}
+				// <End of stiffness matrix solving of the displacements>
+
+				Displacement::UpdatePositionVectorsOfSprings(&completeD_iter, structManager->SpringElements(), &springRecord, setUp->DOF());
+
+				if (Spring3D::CheckMaterialNonlinearityConvergenceDispBased(structManager, setUp, &springRecord, &_breakAnalysis) || (i == *setUp->Iterations() - 2)) { //the last part of this check will go inside this if even if the convergence is not achieved BUT it is the last iteration
+
+					if (i == *setUp->Iterations() - 2) {
+						std::cout << "Loadstep " << step + 1 << " did not converge!" << std::endl;
+					}
+
+					dispRecorder.Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_iter)); //this add the increment completeD_iter to the list of nodes coord
+
+					Spring3D::UpdateSpringLoadStages(structManager->SpringElements(), &springRecord);
+
+					//<Start of solving the restricted stiffness equations to obtain reactions>
+					Matrix mRest = Solver::ReducedRestrictStiffnessMatrix(shellRestricStiff, structManager, setUp, &springRecord);
+					Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(d_iter, structManager, *springRecord.GetNewPlasticDisp(), setUp->DOF());
+					Matrix reactions = mRest * totalDisplacement;
+					//<End of solving the restricted stiffness equations to obtain reactions>
+
+					Matrix completeForce = Load::GetTotalForceMatrix(F_iter, reactions, structManager, setUp, &_biggestStiffVal, &(*setUp->LoadFactors())[step]); //Now organized
+					forceRecorder.Add(Load::GetNewLoads(forceRecorder.Nodes(), completeForce, setUp->DOF())); //storing the total forces on this converged loadstep in the appropriate array
+
+					if (isDynamic) {
+						velPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(curVel), curVel.GetDimX(), curVel.GetDimY());
+						accPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(acc), acc.GetDimX(), acc.GetDimY());
+					}
+
+					//<Start of updating important lists for cyclic localization>
+					springRecord.UpdatePerIterDisps();
+					//<End of updating important lists for cyclic localization>
+
+					if (isDynamic) {
+						prevDisp.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(d_iter));
+						prevVel.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(curVel));
+						prevAcc.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(acc));
+					}
+
+					break; //this will exit the for loop
+				}
+
+				if (_breakAnalysis) {
+					std::cout << "Analysis didn't converge at loadstep " << step + 1 << " and iteration " << i + 2 << std::endl;
+					break; //this will exit this for loop
+				}
+			}
+		}
+
+		if (_breakAnalysis) {
+			break;  //this will exit this for loop
+		}
+	}
+
+	FileOperation::SaveResultsFile(fileName, structManager, &dispRecorder, &forceRecorder, natFreq, totalModes);
 }
+
 
 void IterationManager::TESTPerformDynamicAnalysisWithIterationsMatNonlinearDispBased() {
 
@@ -742,6 +801,7 @@ bool IterationManager::CheckConvergenceCriteria(Matrix &D, double limit)
 	}
 }
 
+
 //abandoned for now
 /*
 void IterationManager::PerformAnalysisWithIterationsGeomNonlinear(std::vector<Node> &listOfNodes, std::vector<ShellElement> &listOfShells, std::vector<Spring3D> &listOfSprings, std::vector<Load> &listOfLoads, std::vector<Support> &listOfSups, int nIter, int nLoadSteps) {
@@ -822,57 +882,55 @@ void IterationManager::PerformAnalysisWithIterationsGeomNonlinear(std::vector<No
 }
 */
 
-
+/*
 void IterationManager::PostConvergenceProcedures(std::vector<Spring3D> &listOfSprings, std::vector<std::vector<std::string>> &listOfSpringLoadingStages, std::vector<std::vector<std::string>> &newSpringStages,
 	Matrix &shellRestricStiff, std::vector<Support> &listOfSups, std::vector<std::vector<double>> &newListOfDisps, std::vector<std::vector<double>> &listOfMinDisps, std::vector<std::vector<double>> &listOfMaxDisps,
 	std::vector<std::vector<double>> &newListOfPlasticDisps, std::vector<std::vector<double>> &unlDispPerIter, std::vector<std::vector<double>> &relDispPerIter, Matrix &dNew, std::vector<Node> &listOfNodes,
 	Matrix& F_iter, double highStiff, std::vector<Matrix> &forcePerStep, std::vector<Matrix> &velPerStep, std::vector<Matrix> &accPerStep, Matrix &curVel, Matrix &acc, std::vector<std::vector<double>> &maxDispPerIter, 
 	std::vector<std::vector<double>> &minDispPerIter, std::vector<std::vector<double>> &listOfUnlDisp, std::vector<std::vector<double>> &listOfRelDisp, Matrix &prevDisp, Matrix &prevVel, Matrix &prevAcc) {
 	
-	
-	Spring3D::UpdateSpringLoadStages(listOfSprings, listOfSpringLoadingStages, newSpringStages);
+	dispRecorder->Add(Displacement::GetNewNodalCoordinates(structManager->Nodes(), completeD_iter)); //this add the increment completeD_iter to the list of nodes coord
+
+	Spring3D::UpdateSpringLoadStages(listOfSprings, listOfSpringLoadingStages, newSpringStages); //Updates the list that stores the load stages of each spring
 
 	//<Start of solving the restricted stiffness equations to obtain reactions>
-	Matrix m2(shellRestricStiff.GetDimX(), shellRestricStiff.GetDimY());
-	Solver::CompleteSpringRestrictedStiffMatrixThreadsDispBasedAfterShells(listOfSprings, m2, listOfSups, newListOfDisps, listOfMinDisps, listOfMaxDisps, newListOfPlasticDisps, listOfSpringLoadingStages, newSpringStages, unlDispPerIter, relDispPerIter);
-	Matrix mRest = shellRestricStiff + m2;
-	Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(dNew, listOfSups, listOfNodes, listOfSprings, newListOfPlasticDisps);
+	Matrix mRest = Solver::ReducedRestrictStiffnessMatrix(&shellRestricStiff, structManager, setUp, &springRecord);
+	Matrix totalDisplacement = Displacement::GetTotalDisplacementNotOrganized(&d_iter, structManager, &springRecord.GetDisplacementMap().find("plasticDisp")->second.find("new")->second, setUp->DOF());
 	Matrix reactions = mRest * totalDisplacement;
 	//<End of solving the restricted stiffness equations to obtain reactions>
 
-	Matrix totalForce = Load::GetTotalForceNotOrganized(F_iter, reactions, listOfSups, listOfNodes); //"Not organized" means that the order on the matrix is not the correct DOF order
-	Matrix completeForce = Load::GetTotalForceMatrix(totalForce, listOfSups, listOfNodes, highStiff, 0); //Now organized
-	forcePerStep.emplace_back(MatrixOperation::CopyMatrixDouble(completeForce), completeForce.GetDimX(), completeForce.GetDimY()); //storing the total forces on this converged loadstep in the appropriate array
+	Matrix completeForce = Load::GetTotalForceMatrix(&F_iter, &reactions, structManager, setUp, &_biggestStiffVal, &(*setUp->LoadFactors())[step]); //Now organized
+	forceRecorder->Add(Load::GetNewLoads(structManager->Loads(), &completeForce, setUp->DOF())); //storing the total forces on this converged loadstep in the appropriate array
 	velPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(curVel), curVel.GetDimX(), curVel.GetDimY());
 	accPerStep.emplace_back(MatrixOperation::CopyMatrixDouble(acc), acc.GetDimX(), acc.GetDimY());
 
 	//<Start of updating important lists for cyclic localization>
-	maxDispPerIter = listOfMaxDisps;
-	minDispPerIter = listOfMinDisps;
-	unlDispPerIter = listOfUnlDisp;
-	relDispPerIter = listOfRelDisp;
+	springRecord.UpdatePerIterDisps();
 	//<End of updating important lists for cyclic localization>
 
 	prevDisp.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(dNew));
 	prevVel.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(curVel));
 	prevAcc.SetMatrixDouble(MatrixOperation::CopyMatrixDouble(acc));
 }
+*/
 
-void IterationManager::CalculateAccelerationAndVelocity(Matrix &dNew, std::vector<std::vector<int>> &totalMassDOFVec, Matrix &redPrevDisp, Matrix &redVel,
-	Matrix &redAcc, TimeIntegrationMethod& IntMethod, double& deltaT, Matrix &prevAcc, Matrix &acc, Matrix &curVel, Matrix &prevVel, std::vector<Support> &listOfSups,
-	std::vector<Node> &listOfNodes, Matrix &completeD_prime){
-	Matrix redDisp = ShellElement::ReducedAccelerationForceMatrix(dNew, totalMassDOFVec);
-	Matrix deltaAccWilson = (redDisp - redPrevDisp) * (1 / (IntMethod.GetNewmarkBeta() * pow(IntMethod.GetWilsonTheta()  * deltaT, 2))) - redVel * (1 / (IntMethod.GetNewmarkBeta() * IntMethod.GetWilsonTheta()  * deltaT)) - redAcc * (1 / (2 * IntMethod.GetNewmarkBeta()));
-	Matrix accRed = deltaAccWilson * (1 / IntMethod.GetWilsonTheta()) + redAcc;
-	acc = ShellElement::ConvertAccFromReducedToTotal(accRed, totalMassDOFVec, prevAcc.GetDimX());
+void IterationManager::CalculateAccelerationAndVelocity(const StructureManager* structManager, const PreAnalysisSetUp* setUp, Matrix& dNew, const std::vector<std::vector<int>>* totalMassDOFVec, Matrix& redPrevDisp, Matrix& redVel,
+	Matrix& redAcc, Matrix& prevAcc, Matrix& acc, Matrix& curVel, Matrix& prevVel, Matrix& completeD_prime){
+	
+	DynamicAnalysis* analysis = static_cast<DynamicAnalysis*>(setUp->Analysis());
 
-	Matrix velRed = redAcc * deltaT + (accRed - redAcc) * IntMethod.GetNewmarkGama() * deltaT + redVel;
+	Matrix redDisp = ShellElement::ReducedAccelerationForceMatrix(dNew, totalMassDOFVec, setUp->DOF());
+	Matrix deltaAccWilson = (redDisp - redPrevDisp) * (1 / (analysis->IntegrationMethod()->GetNewmarkBeta() * pow(analysis->IntegrationMethod()->GetWilsonTheta()  * (*analysis->DeltaT()), 2))) - redVel * (1 / (analysis->IntegrationMethod()->GetNewmarkBeta() * analysis->IntegrationMethod()->GetWilsonTheta()  * (*analysis->DeltaT()))) - redAcc * (1 / (2 * analysis->IntegrationMethod()->GetNewmarkBeta()));
+	Matrix accRed = deltaAccWilson * (1 / analysis->IntegrationMethod()->GetWilsonTheta()) + redAcc;
+	acc = ShellElement::ConvertAccFromReducedToTotal(accRed, totalMassDOFVec, setUp->ReducedStiffMatrixSize());
+
+	Matrix velRed = redAcc * (*analysis->DeltaT()) + (accRed - redAcc) * analysis->IntegrationMethod()->GetNewmarkGama() * (*analysis->DeltaT()) + redVel;
 	//Matrix velRed = (redDisp - redPrevDisp) * (NewMarkGama / (NewMarkBeta * deltaT)) - redVel * (NewMarkGama / NewMarkBeta) - redAcc * ((deltaT * NewMarkGama / (NewMarkBeta * 2)) - deltaT) + redVel;
-	curVel = ShellElement::ConvertAccFromReducedToTotal(velRed, totalMassDOFVec, prevVel.GetDimX());
-	Matrix redNewDisp = redVel * deltaT + redAcc * (pow(deltaT, 2) / 2) + (accRed - redAcc) * IntMethod.GetNewmarkBeta() * pow(deltaT, 2) + redPrevDisp;
-	Matrix disp = ShellElement::ConvertAccFromReducedToTotal(redNewDisp, totalMassDOFVec, dNew.GetDimX());
+	curVel = ShellElement::ConvertAccFromReducedToTotal(velRed, totalMassDOFVec, setUp->ReducedStiffMatrixSize());
+	Matrix redNewDisp = redVel * (*analysis->DeltaT()) + redAcc * (pow((*analysis->DeltaT()), 2) / 2) + (accRed - redAcc) * analysis->IntegrationMethod()->GetNewmarkBeta() * pow((*analysis->DeltaT()), 2) + redPrevDisp;
+	Matrix disp = ShellElement::ConvertAccFromReducedToTotal(redNewDisp, totalMassDOFVec, setUp->ReducedStiffMatrixSize());
 	dNew = MatrixOperation::FillMatrixBasedOnOtherMatrix(disp, dNew);
-	completeD_prime = Displacement::GetTotalDisplacementMatrix(dNew, listOfSups, listOfNodes); //displacements of all nodes
+	completeD_prime = Displacement::GetTotalDisplacementMatrix(dNew, structManager, setUp); //displacements of all nodes
 }
 
 IterationManager::~IterationManager()

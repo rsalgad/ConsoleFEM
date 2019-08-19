@@ -39,6 +39,12 @@
     <Filter Include="Header Files\Helpers\Matrix">
       <UniqueIdentifier>{81b8b410-5dab-42e1-8334-5b4adb5a58e9}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\Analyses">
+      <UniqueIdentifier>{bcbfdd9a-9447-45d6-9f28-32fafacb4dad}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Analyses">
+      <UniqueIdentifier>{b0c85deb-7d85-49a0-950d-d59d1e39c707}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="ElasticMaterial.h">
@@ -113,44 +119,44 @@
     <ClInclude Include="resource.h">
       <Filter>Header Files</Filter>
     </ClInclude>
-    <ClInclude Include="TimeIntegrationMethod.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="StructureManager.h">
       <Filter>Header Files\Helpers</Filter>
     </ClInclude>
-    <ClInclude Include="PreAnalysisSetUp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="Element.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="AnalysisMethod.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ElasticAnalysis.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="MonotonicAnalysis.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="CyclicAnalysis.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="ReverseCyclic.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="DynamicAnalysis.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="NodalRecorder.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Analyses</Filter>
     </ClInclude>
     <ClInclude Include="AnalysisSpringRecorder.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Analyses</Filter>
+    </ClInclude>
+    <ClInclude Include="CyclicAnalysis.h">
+      <Filter>Header Files\Analyses</Filter>
+    </ClInclude>
+    <ClInclude Include="DynamicAnalysis.h">
+      <Filter>Header Files\Analyses</Filter>
+    </ClInclude>
+    <ClInclude Include="ElasticAnalysis.h">
+      <Filter>Header Files\Analyses</Filter>
+    </ClInclude>
+    <ClInclude Include="MonotonicAnalysis.h">
+      <Filter>Header Files\Analyses</Filter>
+    </ClInclude>
+    <ClInclude Include="ReverseCyclic.h">
+      <Filter>Header Files\Analyses</Filter>
+    </ClInclude>
+    <ClInclude Include="TimeIntegrationMethod.h">
+      <Filter>Header Files\Analyses</Filter>
     </ClInclude>
     <ClInclude Include="DynamicLoad.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="Element.h">
+      <Filter>Header Files\Structure</Filter>
+    </ClInclude>
+    <ClInclude Include="NodalRecorder.h">
+      <Filter>Header Files\Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="PreAnalysisSetUp.h">
+      <Filter>Header Files\Helpers</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -226,44 +232,44 @@
     <ClCompile Include="ImpulseLoad.cpp">
       <Filter>Source Files\Structure</Filter>
     </ClCompile>
-    <ClCompile Include="TimeIntegrationMethod.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="StructureManager.cpp">
       <Filter>Source Files\Helpers</Filter>
     </ClCompile>
-    <ClCompile Include="PreAnalysisSetUp.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="Element.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="TimeIntegrationMethod.cpp">
+      <Filter>Source Files\Analyses</Filter>
     </ClCompile>
     <ClCompile Include="AnalysisMethod.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ElasticAnalysis.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="MonotonicAnalysis.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="CyclicAnalysis.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="ReverseCyclic.cpp">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="DynamicAnalysis.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Analyses</Filter>
     </ClCompile>
     <ClCompile Include="AnalysisSpringRecorder.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Analyses</Filter>
     </ClCompile>
-    <ClCompile Include="DynamicLoad.cpp">
-      <Filter>Source Files</Filter>
+    <ClCompile Include="CyclicAnalysis.cpp">
+      <Filter>Source Files\Analyses</Filter>
+    </ClCompile>
+    <ClCompile Include="DynamicAnalysis.cpp">
+      <Filter>Source Files\Analyses</Filter>
+    </ClCompile>
+    <ClCompile Include="ElasticAnalysis.cpp">
+      <Filter>Source Files\Analyses</Filter>
+    </ClCompile>
+    <ClCompile Include="MonotonicAnalysis.cpp">
+      <Filter>Source Files\Analyses</Filter>
+    </ClCompile>
+    <ClCompile Include="ReverseCyclic.cpp">
+      <Filter>Source Files\Analyses</Filter>
+    </ClCompile>
+    <ClCompile Include="PreAnalysisSetUp.cpp">
+      <Filter>Source Files\Helpers</Filter>
     </ClCompile>
     <ClCompile Include="NodalRecorder.cpp">
-      <Filter>Source Files</Filter>
+      <Filter>Source Files\Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="DynamicLoad.cpp">
+      <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="Element.cpp">
+      <Filter>Source Files\Structure</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

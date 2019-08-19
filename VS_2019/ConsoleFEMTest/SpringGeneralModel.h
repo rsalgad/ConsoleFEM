@@ -20,7 +20,7 @@ public:
 	double GetPlasticDisplacement(double disp, double maxD, double minD, std::string prevStage, std::string stage, double minUnlDisp, double maxRelDisp) override;
 	double GetEndElasticDisplacement(double disp, double maxD, double minD) override;
 	double GetForceFromDisplacement(double disp, double maxD, double minD);
-	void UpdateUnlAndRelDisps(std::string stage, std::string prevStage, double disp, double& maxD, double& minD, double& unlDisp, double& relDisp, double prevUnlDisp, double prevRelDisp) override;
+	void UpdateUnlAndRelDisps(std::string stage, std::string prevStage, double disp, double*& maxD, double*& minD, double*& unlDisp, double*& relDisp, double prevUnlDisp, double prevRelDisp) override;
 	std::string GetType() override;
 	std::string ToString() override;
 

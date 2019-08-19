@@ -25,7 +25,7 @@ public:
 	double GetForceFromDisplacement(double disp, double maxD, double minD) override;
 	std::string GetLoadingStage(double disp, double maxD, double minD, std::string prevStage, double minUnlDisp, double maxRelDisp) override;
 	double GetYieldDisp();
-	void UpdateUnlAndRelDisps(std::string stage, std::string prevStage, double disp, double& maxD, double& minD, double& unlDisp, double& relDisp, double prevUnlDisp, double prevRelDisp) override;
+	void UpdateUnlAndRelDisps(std::string stage, std::string prevStage, double disp, double*& maxD, double*& minD, double*& unlDisp, double*& relDisp, double prevUnlDisp, double prevRelDisp) override;
 	std::string GetType() override;
 	std::string ToString() override;
 	~SpringAxialModel();

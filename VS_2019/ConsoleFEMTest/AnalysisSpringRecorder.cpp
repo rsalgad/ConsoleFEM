@@ -170,8 +170,10 @@ void AnalysisSpringRecorder::InitializeAllVectors()
 
 void AnalysisSpringRecorder::UpdatePerIterDisps()
 {
-	_maxDispIter = _newMaxDisp;
-	_minDispIter = _newMinDisp;
-	_unlDispIter = _newUnlDisp;
-	_relDispIter = _newRelDisp;
+	for (int i = 0; i < _maxDispIter.size(); i++) {
+		_maxDispIter[i] = _newMaxDisp[i];
+		_minDispIter[i] = _newMinDisp[i];
+		_unlDispIter[i] = _newUnlDisp[i];
+		_relDispIter[i] = _newRelDisp[i];
+	}
 }

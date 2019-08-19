@@ -590,35 +590,48 @@ std::string SpringGeneralModel::GetLoadingStage(double disp, double maxD, double
 	}
 }
 
-void SpringGeneralModel::UpdateUnlAndRelDisps(std::string stage, std::string prevStage, double disp, double& maxD, double& minD, double& unlDisp, double& relDisp, double prevUnlDisp, double prevRelDisp) {
+void SpringGeneralModel::UpdateUnlAndRelDisps(std::string stage, std::string prevStage, double disp, double* &maxD, double* &minD, double* &unlDisp, double* &relDisp, double prevUnlDisp, double prevRelDisp) {
+	double* newUnlDisp = new double(0);
+	double* newRelDisp = new double(0);
+	double* newMaxD = new double(0);
+	double* newMinD = new double(0);
+
 	if (stage == "unloading-from-positive" && (prevStage == "reloading-from-negative" || prevStage == "reload-unload-connection")) {
-		maxD = -minD; //if I was reloading or in the connection branch and am now unloading, I need to set new values for max values so it calcualtes the branches correctly
-		unlDisp = maxD - disp;
-		relDisp = 0;
+		*newMaxD = -(*minD);
+		maxD = newMaxD; //if I was reloading or in the connection branch and am now unloading, I need to set new values for max values so it calcualtes the branches correctly
+		*newUnlDisp = *maxD - disp;
+		unlDisp = newUnlDisp;
+		relDisp = newRelDisp;
 	}
 	if (stage == "reloading-from-negative" && (prevStage == "unloading-from-positive" || prevStage == "unload-reload-connection")) {
-		minD = -maxD; //if I was reloading or in the connection branch and am now unloading, I need to set new values for max values so it calcualtes the branches correctly
-		relDisp = disp - minD;
-		unlDisp = 0;
-	}
-	
-	double newUnlDisp = maxD - disp;
-	double newRelDisp = disp - minD;
-	if (stage == "unloading-from-positive" && newUnlDisp >= prevUnlDisp) {
+		*newMinD = -(*maxD);
+		minD = newMinD; //if I was reloading or in the connection branch and am now unloading, I need to set new values for max values so it calcualtes the branches correctly
+		*newRelDisp = disp - *minD;
+		relDisp = newRelDisp;
 		unlDisp = newUnlDisp;
 	}
-	if (stage == "reloading-from-negative" && newRelDisp >= prevRelDisp) {
+	
+	double newUnlDisp1 = *maxD - disp;
+	double newRelDisp1 = disp - *minD;
+	if (stage == "unloading-from-positive" && newUnlDisp1 >= prevUnlDisp) {
+		*newUnlDisp = newUnlDisp1;
+		unlDisp = newUnlDisp;
+	}
+	if (stage == "reloading-from-negative" && newRelDisp1 >= prevRelDisp) {
+		*newRelDisp = newRelDisp1;
 		relDisp = newRelDisp;
 	}
 	if (stage == "backbone-negative" || stage == "backbone-positive") {
-		relDisp = 0;
-		unlDisp = 0;
+		relDisp = newRelDisp;
+		unlDisp = newUnlDisp;
 	}
 	if (stage == "reload-unload-connection" && prevStage == "reload-unload-connection") {
-		relDisp = prevRelDisp;
+		*newRelDisp = prevRelDisp;
+		relDisp = newRelDisp;
 	}
 	if (stage == "unload-reload-connection" && prevStage == "unload-reload-connection") {
-		unlDisp = prevUnlDisp;
+		*newUnlDisp = prevUnlDisp;
+		unlDisp = newUnlDisp;
 	}
 }
 

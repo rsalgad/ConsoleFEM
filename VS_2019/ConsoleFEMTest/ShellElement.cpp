@@ -858,8 +858,8 @@ Matrix ShellElement::GetMassMatrixTheory() {
 //this can be used if the elements are quadratic (rectangles or squares). If the element is of 'general shape' then the theoretical formulation should be used and integrated
 Matrix ShellElement::GetMassMatrix() { 
 	double totalMass = GetWidth() * GetHeight() * _thick * _massRho;
-	double extremeNodes = 0.0395;
-	double midNodes = 0.215;
+	double extremeNodes = 1.0/12.0;
+	double midNodes = 1.0/6.0;
 	double DOF = 6;
 
 	Matrix mass(_nodeList.size()*DOF, _nodeList.size()*DOF);
@@ -1360,7 +1360,7 @@ Matrix ShellElement::ReducedAccelerationForceMatrix(Matrix& m, const std::vector
 void ShellElement::AssembleCompleteGlobalMassMatrixThreads(const std::vector<ShellElement*>* vecEle, Matrix& complete, std::mutex& mu) {
 	for (int k = 0; k < vecEle->size(); k++) { // for each element
 		ShellElement* ele = (*vecEle)[k];
-		Matrix global = ele->GetMassMatrixTheory(); //45x45 matrix returns
+		Matrix global = ele->GetMassMatrix(); //45x45 matrix returns
 		std::vector<std::vector<int>> vec = ele->GetGlobalDOFVector();
 		int runs = vec.size(); //number of DOFs not restrained
 		for (int i = 0; i < runs; i++) { //for all the lines in the local stiffness matrix

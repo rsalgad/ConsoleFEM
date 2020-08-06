@@ -29,6 +29,7 @@ public:
 	static Matrix AddMatrixRight(const Matrix &ori, const Matrix &toAdd);
 	static void AddMatrixAtPosition(Matrix &ori, const Matrix &toAdd, const int initRowPos, const int initColPos);
 	static Matrix GetInverse(const Matrix &m);
+	static Matrix GetInverseDiagonal(const Matrix& m);
 	static Matrix GetNormalizedUpperTriangular(const Matrix &m);
 	static Matrix GetNormalizedLowerTriangular(const Matrix &m);
 	static Matrix ExtractMatrixFromEnd(const Matrix &m, const int dim);
@@ -44,6 +45,7 @@ public:
 	static void ConvertToEigenMatrix(const Matrix &m, Eigen::MatrixXd& eigenMatrix);
 	static Matrix Sqrt(const Matrix &m);
 	static void PopulateDiagonalOnly(std::vector<double>& terms, Matrix &m);
+	static Matrix CreateDiagonalMatrixFromVector(const Matrix& m);
 	static Matrix FillMatrixBasedOnOtherMatrix(Matrix& toFill, Matrix& filler);
 
 private:

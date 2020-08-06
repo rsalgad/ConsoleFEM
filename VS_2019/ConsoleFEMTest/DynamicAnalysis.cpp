@@ -24,6 +24,14 @@ DynamicAnalysis::DynamicAnalysis(double totalTime, double deltaT, AnalysisTypes 
 	_convLimit = convLimit;
 }
 
+DynamicAnalysis::DynamicAnalysis(double totalTime, double deltaT, AnalysisTypes type, TimeIntegrationMethod intMethod, int iterations, double convLimit) : AnalysisMethod(-1, iterations)
+{
+	_totalTime = totalTime;
+	_deltaT = deltaT;
+	_type = type;
+	_intMethod = intMethod;
+	_convLimit = convLimit;
+}
 
 const int* DynamicAnalysis::LoadSteps() const
 {
@@ -65,6 +73,11 @@ const double* DynamicAnalysis::Damp2() const
 DynamicLoad* DynamicAnalysis::Load() const
 {
 	return _dynLoad;
+}
+
+void DynamicAnalysis::SetLoad(DynamicLoad* dynLoad)
+{
+	_dynLoad = dynLoad;
 }
 
 const TimeIntegrationMethod* DynamicAnalysis::IntegrationMethod() const

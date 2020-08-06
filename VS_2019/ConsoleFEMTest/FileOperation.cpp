@@ -124,15 +124,58 @@ void FileOperation::SaveResultsFile(std::string &fileName, const StructureManage
 void FileOperation::ReadInputFromXML(std::string fileName, StructureManager& structManager, AnalysisMethod* *analysis) {
 
 	int matTotal, loadTotal, supTotal, eleTotal, nodeTotal, springTotal, massTotal, seismicTotal, impulseTotal, impulseNodeTotal;
+	DynamicAnalysis* dynAnalysis = nullptr;
 
 	tinyxml2::XMLDocument doc;
 	std::string file = fileName + ".xml";
 	doc.LoadFile(file.c_str());
 
 	tinyxml2::XMLNode* root = doc.FirstChildElement("structure"); //find the root of the xml file
-	tinyxml2::XMLElement* element = root->FirstChildElement("materials"); //finds the next 'child' element, which is the <materials> tag
-	element->QueryIntAttribute("total", &matTotal); //finds the attribute of the tag, i.e., the number in between tags eg. <tag> atribute </tag>
+	tinyxml2::XMLElement* element = root->FirstChildElement("analyses"); //finds the next 'child' element, which is the <materials> tag
+	
+	element = element->FirstChildElement("analysis");
+	if (element != 0) {
+		const char* analysisType;
+		element->QueryStringAttribute("type", &analysisType);
+		if (strcmp("Dynamic", analysisType) == 0) {
+			double totTime, deltaT;
+			int iters;
+			const char* intMethod;
+			const char* loadType;
+			element->QueryDoubleAttribute("deltaT", &deltaT);
+			element->QueryDoubleAttribute("total-time", &totTime);
+			element->QueryIntAttribute("iterations", &iters);
+			element->QueryStringAttribute("itegration-method", &intMethod);
+			element->QueryStringAttribute("load-type", &loadType);
 
+			IntegrationMethod integration;
+			if (strcmp("Average Newmark", intMethod) == 0) {
+				integration = IntegrationMethod::AverageNewmark;
+			}
+			else if (strcmp("Linear Newmark", intMethod) == 0) {
+				integration = IntegrationMethod::LinearNewmark;
+			}
+			else if (strcmp("Wilson-Theta", intMethod) == 0) {
+				integration = IntegrationMethod::WilsonTheta;
+			}
+			else {
+				integration = IntegrationMethod::HHTalpha;
+			}
+
+			AnalysisTypes analysisType;
+			if (strcmp("i", loadType) == 0) {
+				analysisType = AnalysisTypes::Impulse;
+			}
+			else {
+				analysisType = AnalysisTypes::Seismic;
+			}
+			dynAnalysis = new DynamicAnalysis(totTime, deltaT, analysisType, integration, iters, 0.001);
+			// *analysis = new DynamicAnalysis(totTime, deltaT, analysisType, integration, iters, 0.001);
+		}
+	}
+
+	element = root->FirstChildElement("materials");
+	element->QueryIntAttribute("total", &matTotal); //finds the attribute of the tag, i.e., the number in between tags eg. <tag> atribute </tag>
 	element = element->FirstChildElement("material"); //finds the next 'child' element, which is the <material> tag
 	for (int i = 0; i < matTotal; i++) { //loops through the amount of materials we have
 		const char* type;
@@ -411,7 +454,9 @@ void FileOperation::ReadInputFromXML(std::string fileName, StructureManager& str
 				sLoad->SetRecordZ(recordsZ);
 			}
 		}
-		*analysis = new DynamicAnalysis(timeVec[timeVec.size() - 1], 0.005, AnalysisTypes::Seismic, IntegrationMethod::AverageNewmark, sLoad, 100, 0.001);
+
+		dynAnalysis->SetLoad(sLoad);
+		*analysis = dynAnalysis;
 	}
 
 	element = root->FirstChildElement("impulse");
@@ -436,8 +481,8 @@ void FileOperation::ReadInputFromXML(std::string fileName, StructureManager& str
 		}
 
 		impLoad->SetPoints(points);
-		
-		*analysis = new DynamicAnalysis(points[points.size() - 1][0], 0.0005, AnalysisTypes::Impulse, IntegrationMethod::AverageNewmark, impLoad, 100, 0.001);
+		dynAnalysis->SetLoad(impLoad);
+		*analysis = dynAnalysis;
 
 	}
 }

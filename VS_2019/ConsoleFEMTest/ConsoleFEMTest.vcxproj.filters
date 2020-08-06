@@ -158,6 +158,9 @@
     <ClInclude Include="PreAnalysisSetUp.h">
       <Filter>Header Files\Helpers</Filter>
     </ClInclude>
+    <ClInclude Include="SparseMatrix.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ConsoleFEMTest.cpp">
@@ -270,6 +273,9 @@
     </ClCompile>
     <ClCompile Include="Element.cpp">
       <Filter>Source Files\Structure</Filter>
+    </ClCompile>
+    <ClCompile Include="SparseMatrix.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>

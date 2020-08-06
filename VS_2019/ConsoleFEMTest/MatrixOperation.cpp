@@ -1,6 +1,7 @@
 #include "pch.h"
 #include <mutex>
 #include <thread>
+#include "SparseMatrix.h"
 //<summary> Creates an identity matrix with the desired dimension </summary> 
 //<dim> Dimension </dim>
 Matrix MatrixOperation::I(int dim) {
@@ -194,6 +195,15 @@ Matrix MatrixOperation::GetInverse(const Matrix &m) {
 	Matrix lower = GetNormalizedLowerTriangular(expanded);
 	Matrix upper = GetNormalizedUpperTriangular(lower);
 	Matrix finalMatrix = ExtractMatrixFromEnd(upper, m.GetDimX());
+
+	return finalMatrix;
+}
+
+Matrix MatrixOperation::GetInverseDiagonal(const Matrix& m) {
+	Matrix finalMatrix(m.GetDimX(), m.GetDimY());
+	for (int i = 0; i < m.GetDimX(); i++) {
+		m.GetMatrixDouble()[i][i] = 1 / m.GetMatrixDouble()[i][i];
+	}
 
 	return finalMatrix;
 }
@@ -446,35 +456,31 @@ Matrix MatrixOperation::BackSubstitution(const Matrix &L, const Matrix &b) {
 Matrix MatrixOperation::FullCholesky(const Matrix &m, const Matrix &f) {
 	int sizeX = m.GetDimX();
 	int sizeY = m.GetDimY();
-	double** matrix = Matrix::CreateMatrixDouble(sizeX, sizeY);
-
-	for (int i = 0; i < sizeX; i++)
+	double** matrix = Matrix::CreateMatrixDouble(sizeX, sizeY); // L matrix
+	
+	for (int i = 0; i < sizeX; i++) 
 	{
-		for (int k = 0; k <= i; k++)
+		double sum = 0;
+		for (int k = 0; k < i; k++)
 		{
-			if (k == i)
+			sum += matrix[i][k] * matrix[i][k];
+		}
+		matrix[i][i] = sqrt(m.GetMatrixDouble()[i][i] - sum);
+		
+		#pragma omp parallel for
+		for (int j = i + 1; j < sizeX; j++) {
+			double sum = 0;
+			for (int k = 0; k < i; k++)
 			{
-				double sum = 0;
-				for (int j = 0; j < k; j++)
-				{
-					sum += matrix[k][j] * matrix[k][j];
-				}
-				matrix[k][k] = sqrt(m.GetMatrixDouble()[k][k] - sum);
+				sum += matrix[j][k] * matrix[i][k];
 			}
-			else
-			{
-				double sum = 0;
-				for (int j = 0; j < k; j++)
-				{
-					sum += matrix[i][j] * matrix[k][j];
-				}
-				matrix[i][k] = 1.0 / matrix[k][k] * (m.GetMatrixDouble()[i][k] - sum);
-			}
+			matrix[j][i] = (1.0 / matrix[i][i]) * (m.GetMatrixDouble()[j][i] - sum);
 		}
 	}
+	Matrix L(matrix, sizeX, sizeY);
+	Matrix LTransp = Transpose(L);
 
-	Matrix cholesky(matrix, sizeX, sizeY);
-	Matrix choleskyTransp = Transpose(cholesky);
+	//Forward Substitution
 
 	int size = f.GetDimX();
 	double** forwardSub = Matrix::CreateMatrixDouble(f.GetDimX(), 1);
@@ -484,9 +490,9 @@ Matrix MatrixOperation::FullCholesky(const Matrix &m, const Matrix &f) {
 		double sum = 0;
 		for (int j = 0; j < i; j++)
 		{
-			sum += cholesky.GetMatrixDouble()[i][j] * forwardSub[j][0];
+			sum += L.GetMatrixDouble()[i][j] * forwardSub[j][0];
 		}
-		forwardSub[i][0] = (f.GetMatrixDouble()[i][0] - sum) / cholesky.GetMatrixDouble()[i][i];
+		forwardSub[i][0] = (f.GetMatrixDouble()[i][0] - sum) / L.GetMatrixDouble()[i][i];
 	}
 
 	double** backSub = Matrix::CreateMatrixDouble(size, 1);
@@ -496,11 +502,11 @@ Matrix MatrixOperation::FullCholesky(const Matrix &m, const Matrix &f) {
 		double sum = 0;
 		for (int j = size - 1; j > i; j--)
 		{
-			sum += choleskyTransp.GetMatrixDouble()[i][j] * backSub[j][0];
+			sum += LTransp.GetMatrixDouble()[i][j] * backSub[j][0];
 		}
-		backSub[i][0] = (forwardSub[i][0] - sum) / choleskyTransp.GetMatrixDouble()[i][i];
+		backSub[i][0] = (forwardSub[i][0] - sum) / LTransp.GetMatrixDouble()[i][i];
 	}
-
+	
 	Matrix::DestroyMatrixDouble(forwardSub, size);
 
 	return Matrix(backSub, size, 1);
@@ -535,12 +541,15 @@ Matrix MatrixOperation::AddMatrixRight(const Matrix &ori, const Matrix &toAdd) {
 	int newSizeY = ori.GetDimY() + toAdd.GetDimY();
 	int sizeX = ori.GetDimX();
 	double** matrix = Matrix::CreateMatrixDouble(sizeX, newSizeY);
+	//#pragma omp parallel for
 	for (int i = 0; i < sizeX; i++) {
 		for (int j = 0; j < newSizeY; j++) {
 			if (j < ori.GetDimY()) {
+				//#pragma omp critical
 				matrix[i][j] = ori.GetMatrixDouble()[i][j];
 			}
 			else {
+				//#pragma omp critical
 				matrix[i][j] = toAdd.GetMatrixDouble()[i][j - ori.GetDimY()];
 			}
 		}
@@ -570,10 +579,12 @@ void MatrixOperation::AddMatrixAtPosition(Matrix &ori, const Matrix &toAdd, cons
 //<comment>This function returns a matrix with the same number of rows and the remaining number of columns from the original matrix minus the specified position. Ex. 20 - 17 = 3, the last three columns. </comment>
 Matrix MatrixOperation::ExtractMatrixFromEnd(const Matrix &m, const int dim) {
 	double** matrix = Matrix::CreateMatrixDouble(m.GetDimX(), m.GetDimY() - dim);
+	#pragma omp parallel for
 	for (int i = 0; i < m.GetDimX(); i++)
 	{
 		for (int j = m.GetDimY() - dim; j < m.GetDimY(); j++)
 		{
+			//#pragma omp critical
 			matrix[i][j - (m.GetDimY() - dim)] = m.GetMatrixDouble()[i][j];
 		}
 	}
@@ -601,8 +612,10 @@ Matrix MatrixOperation::GetNormalizedUpperTriangular(const Matrix &m) {
 				else if (i > k)
 				{
 					double n1 = matrix[i][k];
+					//#pragma omp parallel for
 					for (int j = 0; j < m.GetDimY(); j++)
 					{
+						//#pragma omp critical
 						matrix[i][j] = matrix[i][j] - n1 * matrix[k][j];
 					}
 				}
@@ -646,8 +659,11 @@ Matrix MatrixOperation::GetNormalizedLowerTriangular(const Matrix &m) {
 				else if (i < k)
 				{
 					double n1 = matrix[i][k];
+					//#pragma omp parallel for
 					for (int j = 0; j < m.GetDimY(); j++)
 					{
+						//printf("%d", j);
+						//#pragma omp critical
 						matrix[i][j] = matrix[i][j] - n1 * matrix[k][j];
 					}
 				}
@@ -862,6 +878,16 @@ void MatrixOperation::PopulateDiagonalOnly(std::vector<double>& terms, Matrix &m
 	for (int i = 0; i < m.GetDimX(); i++) {
 		m.GetMatrixDouble()[i][i] = terms[i];
 	}
+}
+
+Matrix MatrixOperation::CreateDiagonalMatrixFromVector(const Matrix& m) {
+	Matrix diag(m.GetDimX(), m.GetDimX());
+
+	for (int i = 0; i < m.GetDimX(); i++) {
+		diag.GetMatrixDouble()[i][i] = m.GetMatrixDouble()[i][0];
+	}
+
+	return diag;
 }
 
 //toFill and filler must have the same dimensions

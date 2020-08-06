@@ -10,6 +10,8 @@ class DynamicAnalysis :
 public:
 	DynamicAnalysis(double totalTime, double deltaT, AnalysisTypes type, TimeIntegrationMethod intMethod, DynamicLoad* dynLoad, int iterations, double convLimit); //TODO Parameters
 	DynamicAnalysis(double totalTime, double deltaT, AnalysisTypes type, TimeIntegrationMethod intMethod, DynamicLoad* dynLoad, int dampMode1, int dampMode2, double damp1, double damp2, int iterations, double convLimit);
+	DynamicAnalysis(double totalTime, double deltaT, AnalysisTypes type, TimeIntegrationMethod intMethod, int iterations, double convLimit); //TODO Parameters
+
 	const int* LoadSteps() const override;
 	const double* TotalTime() const;
 	const double* DeltaT() const;
@@ -18,8 +20,10 @@ public:
 	const double* Damp1() const;
 	const double* Damp2() const;
 	DynamicLoad* Load() const;
+	void SetLoad(DynamicLoad* dynLoad);
 	const TimeIntegrationMethod* IntegrationMethod() const;
 	const AnalysisTypes Type() const override;
+
 
 private: //TODO Parameters
 	double CalculateTotalTime();

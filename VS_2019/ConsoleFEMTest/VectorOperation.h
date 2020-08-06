@@ -16,6 +16,7 @@ public:
 	static Matrix VectorCrossProduct(const Matrix &v1, const Matrix &v2);
 	static Matrix UnitVector(const Matrix &vec);
 	static double VectorLength(const Matrix &vec);
+	static Matrix CreateVectorFromDiagonalMatrix(const Matrix &m);
 
 private:
 	VectorOperation();

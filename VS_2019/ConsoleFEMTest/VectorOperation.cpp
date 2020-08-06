@@ -138,3 +138,12 @@ Matrix VectorOperation::UnitVector(const Matrix &vec) {
 	vector[2][0] = vec.GetMatrixDouble()[2][0] / length;
 	return Matrix(vector, 3, 1);
 }
+
+Matrix VectorOperation::CreateVectorFromDiagonalMatrix(const Matrix &m) {
+	Matrix vec(m.GetDimX(), 1);
+
+	for (int i = 0; i < m.GetDimX(); i++) {
+		vec.GetMatrixDouble()[i][0] = m.GetMatrixDouble()[i][i];
+	}
+	return vec;
+}

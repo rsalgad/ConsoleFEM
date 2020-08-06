@@ -60,7 +60,7 @@ Matrix Solver::CompleteStiffnessMatrixWithThreads(std::vector<Node> &listOfNodes
 
 Matrix Solver::ReducedStiffnessMatrix(Matrix& shellStiff, const StructureManager* structManager,const PreAnalysisSetUp* setUp, AnalysisSpringRecorder* springRecorder, double* highStiff)
 {	
-	Matrix springStiff = ReducedSpringStiffMatrix(setUp->ReducedStiffMatrixSize(), structManager->SpringElements(), springRecorder);
+	Matrix springStiff = Solver::ReducedSpringStiffMatrix(setUp->ReducedStiffMatrixSize(), structManager->SpringElements(), springRecorder);
 	Matrix redStiff = shellStiff + springStiff;
 
 	if (setUp->DispLoadDOFs() != 0) { //if there are displacement loads
@@ -210,8 +210,9 @@ Matrix Solver::ReducedSpringStiffMatrix(const int* redSize, const std::map<int, 
 		return m;
 	}
 	else {
-		std::cout << "Error calculating Spring Stiffness Matrices" << std::endl;
-		return Matrix(0);
+		//std::cout << "Error calculating Spring Stiffness Matrices" << std::endl;
+		Matrix m(*redSize, *redSize);
+		return m;
 	}
 }
 
@@ -228,8 +229,11 @@ Matrix Solver::ReducedSpringRestrictedStiffMatrix(const PreAnalysisSetUp* setUp,
 		return m;
 	}
 	else {
-		std::cout << "Error calculating Spring Stiffness Matrices" << std::endl;
-		return Matrix(0);
+		//std::cout << "Error calculating Spring Stiffness Matrices" << std::endl;
+		int sizeRow = *setUp->StiffMatrixSize() - *setUp->ReducedStiffMatrixSize();
+		int sizeCol = *setUp->StiffMatrixSize();
+		Matrix m(sizeRow, sizeCol);
+		return m;
 	}
 }
 
@@ -276,7 +280,7 @@ void Solver::PlasticDisplacementLoadForce(Matrix& force, const StructureManager*
 
 	for (int i = 0; i < vec->size(); i++) {
 		std::vector<int> matPos = structManager->SpringElements()->find(i + 1)->second->GetListOfGlobalMaterialDirections();
-		for (int j = 0; j < vec[i].size(); j++) {
+		for (int j = 0; j < vec[i][0].size(); j++) {
 			if (*(*vec)[i][j] != 0) { //no need to do this if no plastic disp
 				double dispLoad = *(*vec)[i][j];
 				double stiff = structManager->SpringElements()->find(i + 1)->second->GetListOfMaterials()[matPos[j]]->GetSecantStiffnessFromDisplacement(*(*springRecord->GetNewDisp())[i][j],
